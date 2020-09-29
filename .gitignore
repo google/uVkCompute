@@ -1,0 +1,14 @@
+# CMake artifacts
+build/
+build-*/
+
+# macOS files
+.DS_Store
+
+# Source indexing files
+compile_commands.json
+.cache/clangd
+.clangd/
+
+# Vim swap files
+[._]*.sw[a-p]
