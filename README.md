@@ -32,4 +32,30 @@ example, it just uses the system allocator and allocates separate memory for
 each buffer. Simplicity is favored instead of building a production-level
 Vulkan application.
 
+## Dependencies
+
+This repository requires a common C++ project development environment:
+
+* [CMake][cmake] with version >= 3.7
+* (Optional) the [Ninja][ninja] build system
+* A C/C++ compiler that supports C11/C++14
+
+It additionally requires the [Vulkan SDK][vulkan-sdk], which will be used for
+both the Vulkan shared library and shader compilers like `glslc` for (GLSL)
+and `dxc` (for HLSL).
+
+## Building
+
+```shell
+git clone https://github.com/google/uVkCompute.git
+cd uVkCompute
+git submodule update --init
+mkdir build && cd build
+cmake ..
+ninja
+```
+
+[cmake]: https://cmake.org/
+[ninja]: https://ninja-build.org/
 [vulkan]: https://www.khronos.org/vulkan/
+[vulkan-sdk]: https://www.lunarg.com/vulkan-sdk/

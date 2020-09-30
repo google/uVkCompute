@@ -1,0 +1,140 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+uvkc_cc_library(
+  NAME
+    buffer
+  HDRS
+    "buffer.h"
+  SRCS
+    "buffer.cc"
+  DEPS
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    command_buffer
+  HDRS
+    "command_buffer.h"
+  SRCS
+    "command_buffer.cc"
+  DEPS
+    ::status_util
+    ::pipeline
+    absl::statusor
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    descriptor_pool
+  HDRS
+    "descriptor_pool.h"
+  SRCS
+    "descriptor_pool.cc"
+  DEPS
+    ::status_util
+    absl::span
+    absl::statusor
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    device
+  HDRS
+    "device.h"
+  SRCS
+    "device.cc"
+  DEPS
+    ::buffer
+    ::command_buffer
+    ::descriptor_pool
+    ::pipeline
+    ::shader_module
+    absl::statusor
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    driver
+  HDRS
+    "driver.h"
+  SRCS
+    "driver.cc"
+  DEPS
+    ::device
+    ::status_util
+    absl::statusor
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    pipeline
+  HDRS
+    "pipeline.h"
+  SRCS
+    "pipeline.cc"
+  DEPS
+    ::shader_module
+    ::status_util
+    absl::span
+    absl::statusor
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    pipeline_util
+  HDRS
+    "pipeline_util.h"
+  SRCS
+    "pipeline_util.cc"
+    "${UVKC_SOURCE_ROOT}/third_party/SPIRV-Reflect/spirv_reflect.h"
+    "${UVKC_SOURCE_ROOT}/third_party/SPIRV-Reflect/spirv_reflect.c"
+  INCLUDES
+    "${UVKC_SOURCE_ROOT}/third_party/SPIRV-Reflect"
+  DEPS
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    shader_module
+  HDRS
+    "shader_module.h"
+  SRCS
+    "shader_module.cc"
+  DEPS
+    ::pipeline_util
+    ::status_util
+    absl::span
+    absl::statusor
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    status_util
+  HDRS
+    "status_util.h"
+  SRCS
+    "status_util.cc"
+  DEPS
+    absl::status
+    Vulkan::Vulkan
+)
