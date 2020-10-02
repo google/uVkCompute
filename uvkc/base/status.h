@@ -21,7 +21,7 @@
 // Utility macros
 //===----------------------------------------------------------------------===//
 
-// Executes an expression `rexpr` that returns a `absl::StatusOr`. On error,
+// Executes an expression `rexpr` that returns a `absl::Status`. On error,
 // returns from the current function.
 #define UVKC_RETURN_IF_ERROR(rexpr) \
   UVKC_RETURN_IF_ERROR_INNER_(      \

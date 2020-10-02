@@ -25,6 +25,8 @@ namespace benchmark {
 // Utility macros
 //===----------------------------------------------------------------------===//
 
+// Checks that `condition` to be true. On error, prints the message to the error
+// logger and aborts the program.
 #define BM_CHECK(condition)            \
   (condition ? ::uvkc::GetNullLogger() \
              : ::uvkc::benchmark::CheckError(__FILE__, __LINE__).logger())
@@ -32,11 +34,16 @@ namespace benchmark {
 #define BM_CHECK_EQ(a, b) BM_CHECK((a) == (b))
 #define BM_CHECK_NE(a, b) BM_CHECK((a) != (b))
 
+// Checks thel expression `rexpr` that returns a `absl::Status`. On error,
+// prints the message to the error logger and aborts the program.
 #define BM_CHECK_OK(rexpr)                                               \
   BM_CHECK_OK_INNER_(__FILE__, __LINE__,                                 \
                      UVKC_STATUS_IMPL_CONCAT_(_status_object, __LINE__), \
                      rexpr)
 
+// Checks thel expression `rexpr` that returns a `absl::StatusOr<T>`. On OK,
+// moves its value into the variable defined by `lhs`. On error, prints the
+// message to the error logger and aborts the program.
 #define BM_CHECK_OK_AND_ASSIGN(lhs, rexpr) \
   BM_CHECK_OK_AND_ASSIGN_INNER_(           \
       __FILE__, __LINE__,                  \
@@ -66,25 +73,19 @@ class CheckError {
 // Macros internals
 //===----------------------------------------------------------------------===//
 
-#define BM_CHECK_OK_INNER_(file, line, status, rexpr)                      \
-  do {                                                                     \
-    auto status = rexpr;                                                   \
-    if (!status.ok()) {                                                    \
-      ::uvkc::GetErrorLogger()                                             \
-          << file << ":" << line << ": check error: " << status.ToString() \
-          << "\n";                                                         \
-      std::abort();                                                        \
-    }                                                                      \
+#define BM_CHECK_OK_INNER_(file, line, status, rexpr)                          \
+  do {                                                                         \
+    auto status = rexpr;                                                       \
+    if (!status.ok()) {                                                        \
+      ::uvkc::benchmark::CheckError(file, line).logger() << status.ToString(); \
+    }                                                                          \
   } while (0)
 
 #define BM_CHECK_OK_AND_ASSIGN_INNER_(file, line, statusor, lhs, rexpr) \
   auto statusor = rexpr;                                                \
   if (!statusor.ok()) {                                                 \
-    ::uvkc::GetErrorLogger()                                            \
-        << file << ":" << line                                          \
-        << ": check error: " << std::move(statusor).status().ToString() \
-        << "\n";                                                        \
-    std::abort();                                                       \
+    ::uvkc::benchmark::CheckError(file, line).logger()                  \
+        << std::move(statusor).status().ToString();                     \
   }                                                                     \
   lhs = std::move(statusor).value()
 
