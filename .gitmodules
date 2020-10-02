@@ -4,3 +4,6 @@
 [submodule "third_party/SPIRV-Reflect"]
 	path = third_party/SPIRV-Reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
+[submodule "third_party/benchmark"]
+	path = third_party/benchmark
+	url = git@github.com:google/benchmark.git
