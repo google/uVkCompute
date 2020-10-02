@@ -12,20 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-uvkc_glsl_shader_module(
-  NAME
-    copy_storage_buffer_scalar_shader
-  SRC
-    "copy_storage_buffer_scalar.glsl"
-)
+# Suppress warnings from third-party projects
+set_property(DIRECTORY APPEND PROPERTY COMPILE_OPTIONS -w)
 
-uvkc_cc_binary(
-  NAME
-    copy_storage_buffer_scalar
-  SRCS
-    "copy_storage_buffer_scalar_main.cc"
-  DEPS
-    ::copy_storage_buffer_scalar_shader
-    benchmark::benchmark
-    uvkc::benchmark::main
-)
+add_subdirectory(abseil-cpp EXCLUDE_FROM_ALL)
+
+set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(benchmark EXCLUDE_FROM_ALL)

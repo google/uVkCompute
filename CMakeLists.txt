@@ -48,13 +48,14 @@ include(uvkc_glsl_shader_module)
 # Third-party dependencies
 #-------------------------------------------------------------------------------
 
-add_subdirectory(third_party/abseil-cpp EXCLUDE_FROM_ALL)
+add_subdirectory(third_party)
 
 #-------------------------------------------------------------------------------
 # Core libraries
 #-------------------------------------------------------------------------------
 
 add_subdirectory(uvkc/base)
+add_subdirectory(uvkc/benchmark)
 add_subdirectory(uvkc/vulkan)
 
 #-------------------------------------------------------------------------------

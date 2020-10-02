@@ -24,4 +24,11 @@ uvkc_cc_library(
     absl::statusor
 )
 
-
+uvkc_cc_library(
+  NAME
+    log
+  HDRS
+    "log.h"
+  SRCS
+    "log.cc"
+)

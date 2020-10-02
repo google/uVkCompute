@@ -12,20 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-uvkc_glsl_shader_module(
+uvkc_cc_library(
   NAME
-    copy_storage_buffer_scalar_shader
-  SRC
-    "copy_storage_buffer_scalar.glsl"
+    main
+  HDRS
+    "main.h"
+  SRCS
+    "main.cc"
+  DEPS
+    ::status_util
+    ::vulkan_context
+    benchmark::benchmark
+    uvkc::base::log
 )
 
-uvkc_cc_binary(
+uvkc_cc_library(
   NAME
-    copy_storage_buffer_scalar
+    status_util
+  HDRS
+    "status_util.h"
   SRCS
-    "copy_storage_buffer_scalar_main.cc"
+    "status_util.cc"
   DEPS
-    ::copy_storage_buffer_scalar_shader
-    benchmark::benchmark
-    uvkc::benchmark::main
+    absl::status
+    absl::statusor
+    uvkc::base::log
 )
+
+uvkc_cc_library(
+  NAME
+    vulkan_context
+  HDRS
+    "vulkan_context.h"
+  SRCS
+    "vulkan_context.cc"
+  DEPS
+    absl::statusor
+    uvkc::vulkan::device
+    uvkc::vulkan::driver
+    Vulkan::Vulkan
+)
+
