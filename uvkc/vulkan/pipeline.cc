@@ -39,7 +39,8 @@ SpecConstantData PackSpecConstantData(
   }
 
   std::vector<uint8_t> data(total_size);
-  std::vector<VkSpecializationMapEntry> entries(spec_constants.size());
+  std::vector<VkSpecializationMapEntry> entries;
+  entries.reserve(spec_constants.size());
 
   uint32_t index = 0;  // Next available byte's index in the buffer
   for (const auto &spec_const : spec_constants) {

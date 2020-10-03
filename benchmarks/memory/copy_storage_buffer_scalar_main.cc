@@ -16,11 +16,14 @@
 #include <memory>
 #include <numeric>
 
+#include "absl/strings/str_cat.h"
+#include "absl/types/span.h"
 #include "benchmark/benchmark.h"
 #include "uvkc/benchmark/main.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_context.h"
 #include "uvkc/vulkan/device.h"
+#include "uvkc/vulkan/pipeline.h"
 
 static const char kBenchmarkName[] = "copy_storage_buffer_scalar";
 
@@ -29,8 +32,8 @@ static uint32_t kShaderCode[] = {
 };
 
 static void CopyStorageBufferScalar(::benchmark::State &state,
-                                    uvkc::vulkan::Device *device,
-                                    uint32_t num_elements) {
+                                    ::uvkc::vulkan::Device *device,
+                                    int num_elements) {
   size_t buffer_size = num_elements * sizeof(float);
 
   //===-------------------------------------------------------------------===/
@@ -41,9 +44,14 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
       auto shader_module,
       device->CreateShaderModule(kShaderCode,
                                  sizeof(kShaderCode) / sizeof(uint32_t)));
+
+  ::uvkc::vulkan::Pipeline::SpecConstant spec_constant = {};
+  spec_constant.id = 0;
+  spec_constant.type = ::uvkc::vulkan::Pipeline::SpecConstant::Type::s32;
+  spec_constant.value.s32 = num_elements;
   BM_CHECK_OK_AND_ASSIGN(
-      auto pipeline,
-      device->CreatePipeline(*shader_module, "main", /*spec_constants=*/{}));
+      auto pipeline, device->CreatePipeline(*shader_module, "main",
+                                            absl::MakeSpan(&spec_constant, 1)));
 
   BM_CHECK_OK_AND_ASSIGN(auto descriptor_pool,
                          device->CreateDescriptorPool(*shader_module));
@@ -99,7 +107,7 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
   // Dispatch
   //===-------------------------------------------------------------------===/
 
-  std::vector<uvkc::vulkan::Device::BoundBuffer> bound_buffers(2);
+  std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers(2);
   bound_buffers[0].buffer = src_buffer.get();
   bound_buffers[0].set = 0;
   bound_buffers[0].binding = 0;
@@ -114,7 +122,7 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
       << "unexpected number of descriptor sets";
   auto descriptor_set_layout = shader_module->descriptor_set_layouts().front();
 
-  std::vector<uvkc::vulkan::CommandBuffer::BoundDescriptorSet>
+  std::vector<::uvkc::vulkan::CommandBuffer::BoundDescriptorSet>
       bound_descriptor_sets(1);
   bound_descriptor_sets[0].index = 0;
   bound_descriptor_sets[0].set = layout_set_map.at(descriptor_set_layout);
@@ -169,6 +177,7 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
                                                                   start_time);
     state.SetIterationTime(elapsed_seconds.count());
   }
+  state.SetBytesProcessed(buffer_size);
 }
 
 namespace uvkc {
@@ -179,12 +188,16 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
 }
 
 void RegisterVulkanBenchmarks(VulkanContext *context) {
-  for (int i = 0; i < context->devices.size(); ++i) {
-    const char *gpu_name = context->physical_devices[i].properties.deviceName;
-    ::benchmark::RegisterBenchmark(gpu_name, CopyStorageBufferScalar,
-                                   context->devices[i].get(), 64)
-        ->UseManualTime()
-        ->Unit(::benchmark::kMicrosecond);
+  for (int di = 0; di < context->devices.size(); ++di) {
+    const char *gpu_name = context->physical_devices[di].properties.deviceName;
+    for (int shift = 10; shift < 20; ++shift) {
+      int num_elements = 1 << shift;
+      std::string test_name = absl::StrCat(gpu_name, "/", num_elements);
+      ::benchmark::RegisterBenchmark(test_name.c_str(), CopyStorageBufferScalar,
+                                     context->devices[di].get(), num_elements)
+          ->UseManualTime()
+          ->Unit(::benchmark::kMicrosecond);
+    }
   }
 }
 
