@@ -28,6 +28,19 @@ uvkc_cc_library(
 
 uvkc_cc_library(
   NAME
+    vulkan_buffer_util
+  HDRS
+    "vulkan_buffer_util.h"
+  SRCS
+    "vulkan_buffer_util.cc"
+  DEPS
+    absl::status
+    uvkc::vulkan::buffer
+    uvkc::vulkan::device
+)
+
+uvkc_cc_library(
+  NAME
     status_util
   HDRS
     "status_util.h"

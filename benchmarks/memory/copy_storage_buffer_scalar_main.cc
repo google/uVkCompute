@@ -21,6 +21,7 @@
 #include "benchmark/benchmark.h"
 #include "uvkc/benchmark/main.h"
 #include "uvkc/benchmark/status_util.h"
+#include "uvkc/benchmark/vulkan_buffer_util.h"
 #include "uvkc/benchmark/vulkan_context.h"
 #include "uvkc/vulkan/device.h"
 #include "uvkc/vulkan/pipeline.h"
@@ -64,12 +65,6 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
   //===-------------------------------------------------------------------===/
 
   BM_CHECK_OK_AND_ASSIGN(
-      auto src_staging_buffer,
-      device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                           buffer_size));
-  BM_CHECK_OK_AND_ASSIGN(
       auto src_buffer,
       device->CreateBuffer(
           VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -79,29 +74,17 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
       device->CreateBuffer(
           VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer_size));
-  BM_CHECK_OK_AND_ASSIGN(
-      auto dst_staging_buffer,
-      device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                           buffer_size));
 
   //===-------------------------------------------------------------------===/
-  // Copy data from host staging buffer to device buffer
+  // Set source buffer data
   //===-------------------------------------------------------------------===/
 
-  BM_CHECK_OK_AND_ASSIGN(void *src_staging_ptr,
-                         src_staging_buffer->MapMemory(0, buffer_size));
-  float *src_float_buffer = reinterpret_cast<float *>(src_staging_ptr);
-  std::iota(src_float_buffer, src_float_buffer + num_elements, 0.0f);
-  src_staging_buffer->UnmapMemory();
-
-  BM_CHECK_OK_AND_ASSIGN(auto src_copy_cmdbuf, device->AllocateCommandBuffer());
-  BM_CHECK_OK(src_copy_cmdbuf->Begin());
-  src_copy_cmdbuf->CopyBuffer(*src_staging_buffer, 0, *src_buffer, 0,
-                              buffer_size);
-  BM_CHECK_OK(src_copy_cmdbuf->End());
-  BM_CHECK_OK(device->QueueSubmitAndWait(*src_copy_cmdbuf));
+  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+      device, src_buffer.get(), buffer_size, [](void *ptr, size_t num_bytes) {
+        float *src_float_buffer = reinterpret_cast<float *>(ptr);
+        std::iota(src_float_buffer,
+                  src_float_buffer + num_bytes / sizeof(float), 0.0f);
+      }));
 
   //===-------------------------------------------------------------------===/
   // Dispatch
@@ -136,26 +119,19 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
   BM_CHECK_OK(device->QueueSubmitAndWait(*dispatch_cmdbuf));
 
   //===-------------------------------------------------------------------===/
-  // Copy data from device buffer to host staging buffer
+  // Verify destination buffer data
   //===-------------------------------------------------------------------===/
 
-  BM_CHECK_OK_AND_ASSIGN(auto dst_copy_cmdbuf, device->AllocateCommandBuffer());
-  BM_CHECK_OK(dst_copy_cmdbuf->Begin());
-  dst_copy_cmdbuf->CopyBuffer(*dst_buffer, 0, *dst_staging_buffer, 0,
-                              buffer_size);
-  BM_CHECK_OK(dst_copy_cmdbuf->End());
-  BM_CHECK_OK(device->QueueSubmitAndWait(*dst_copy_cmdbuf));
-
-  BM_CHECK_OK_AND_ASSIGN(void *dst_staging_ptr,
-                         dst_staging_buffer->MapMemory(0, buffer_size));
-  float *dst_float_buffer = reinterpret_cast<float *>(dst_staging_ptr);
-  for (int i = 0; i < num_elements; ++i) {
-    BM_CHECK_EQ(dst_float_buffer[i], i)
-        << "destination buffer element #" << i
-        << " has incorrect value: expected to be " << i << " but found "
-        << dst_float_buffer[i];
-  }
-  dst_staging_buffer->UnmapMemory();
+  BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
+      device, dst_buffer.get(), buffer_size, [](void *ptr, size_t num_bytes) {
+        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
+        for (int i = 0; i < num_bytes / sizeof(float); ++i) {
+          BM_CHECK_EQ(dst_float_buffer[i], i)
+              << "destination buffer element #" << i
+              << " has incorrect value: expected to be " << i << " but found "
+              << dst_float_buffer[i];
+        }
+      }));
 
   //===-------------------------------------------------------------------===/
   // Benchmarking
