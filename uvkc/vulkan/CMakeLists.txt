@@ -39,6 +39,21 @@ uvkc_cc_library(
 
 uvkc_cc_library(
   NAME
+    dynamic_symbols
+  HDRS
+    "dynamic_symbols.h"
+  SRCS
+    "dynamic_symbols.cc"
+  DEPS
+    absl::span
+    absl::statusor
+    absl::strings
+    uvkc::base::dynamic_library
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
     descriptor_pool
   HDRS
     "descriptor_pool.h"
