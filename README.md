@@ -46,18 +46,62 @@ both the Vulkan shared library and shader compilers like `glslc` for (GLSL)
 and `dxc` (for HLSL). Please make sure you have set the `VULKAN_SDK` environment
 variable.
 
-## Building
+## Building and Running
+
+### Linux/macOS
 
 ```shell
 git clone https://github.com/google/uVkCompute.git
 cd uVkCompute
 git submodule update --init
-mkdir build && cd build
-cmake ..
-ninja
+
+cmake -G Ninja -B build/
+cmake --build build/
 ```
 
+Afterwards you can run the benchmark binaries generated into the `build/`
+directory on the host machine.
+
+### Android
+
+```shell
+git clone https://github.com/google/uVkCompute.git
+cd uVkCompute
+git submodule update --init
+
+cmake -G Ninja -B build-android  \
+  -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK?}/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI="arm64-v8a" -DANDROID_PLATFORM=android-29
+cmake --build build/
+```
+
+Where `ANDROID_NDK` is the path to the [Android NDK
+installation][android-ndk-install]. See Android's CMake guide for explanation
+over [`ANDROID_ABI`][android-abi] and [`ANROID_PLATFORM`][android-platform].
+
+Afterwards, you can use `adb push` and `adb shell` to run the benchmark binaries
+generated into the `build-android/` directory on Android devices. For example,
+for a benchmark binary `bench` at `build-android/benchmarks/foo/bar/bench`:
+
+```shell
+# Push the benchmark to the Android device
+adb push build-android/benchmarks/foo/bar/bench /data/local/tmp
+adb shell "cd /data/local/tmp && ./bench"
+```
+
+Note that for Android 10, if you see the "Failed to match any benchmarks against
+regex: ." error message, it means that no [Vulkan ICDs][vulkan-icd] (a.k.a.,
+Vulkan vendor drivers) are discovered. This is a known issue that is fixed in
+Android 11. A workaround is to copy the Vulkan ICD (normally as
+`/vendor/lib[64]/hw/vulkan.*.so`) to `/data/local/tmp` and run the benchmark
+binary with `LD_LIBRARY_PATH=/data/local/tmp`.
+
+
+[android-abi]: https://developer.android.com/ndk/guides/cmake#android_abi
+[android-ndk-install]: https://developer.android.com/ndk/downloads
+[android-platform]: https://developer.android.com/ndk/guides/cmake#android_platform
 [cmake]: https://cmake.org/
 [ninja]: https://ninja-build.org/
 [vulkan]: https://www.khronos.org/vulkan/
+[vulkan-icd]: https://github.com/KhronosGroup/Vulkan-Loader/blob/master/loader/LoaderAndLayerInterface.md#installable-client-drivers
 [vulkan-sdk]: https://www.lunarg.com/vulkan-sdk/
