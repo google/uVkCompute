@@ -27,12 +27,13 @@ include(CMakeParseArguments)
 # * DEPS: the list of libraries that this library depends on
 # * INCLUDES: the list of additional public include directories to this library
 # * COPTS: the list of private compile options
+# * LINKOPTS: the list of private link options
 function(uvkc_cc_library)
   cmake_parse_arguments(
     _RULE
     ""
     "NAME"
-    "HDRS;SRCS;DEPS;INCLUDES;COPTS"
+    "HDRS;SRCS;DEPS;INCLUDES;COPTS;LINKOPTS"
     ${ARGN}
   )
 
@@ -62,5 +63,8 @@ function(uvkc_cc_library)
 
   target_compile_options(${_NAME} PRIVATE ${_RULE_COPTS})
 
-  target_link_libraries(${_NAME} PUBLIC ${_RULE_DEPS})
+  target_link_libraries(${_NAME}
+    PUBLIC ${_RULE_DEPS}
+    PRIVATE ${_RULE_LINKOPTS}
+  )
 endfunction()

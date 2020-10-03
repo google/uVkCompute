@@ -32,3 +32,18 @@ uvkc_cc_library(
   SRCS
     "log.cc"
 )
+
+uvkc_cc_library(
+  NAME
+    dynamic_library
+  HDRS
+    "dynamic_library.h"
+  SRCS
+    "dynamic_library_posix.cc"
+  DEPS
+    absl::span
+    absl::statusor
+    absl::strings
+  LINKOPTS
+    ${CMAKE_DL_LIBS} # for dlopen/dlclose on Linux
+)
