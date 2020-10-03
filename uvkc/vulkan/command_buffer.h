@@ -22,6 +22,7 @@
 
 #include "absl/status/statusor.h"
 #include "uvkc/vulkan/buffer.h"
+#include "uvkc/vulkan/dynamic_symbols.h"
 #include "uvkc/vulkan/pipeline.h"
 
 namespace uvkc {
@@ -34,7 +35,8 @@ namespace vulkan {
 class CommandBuffer {
  public:
   // Wraps a |command_buffer| from |device|.
-  CommandBuffer(VkDevice device, VkCommandBuffer command_buffer);
+  CommandBuffer(VkDevice device, VkCommandBuffer command_buffer,
+                const DynamicSymbols &symbols);
 
   ~CommandBuffer();
 
@@ -70,6 +72,8 @@ class CommandBuffer {
   VkCommandBuffer command_buffer_;
 
   VkDevice device_;
+
+  const DynamicSymbols &symbols_;
 };
 
 }  // namespace vulkan

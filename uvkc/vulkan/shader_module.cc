@@ -24,7 +24,8 @@ namespace uvkc {
 namespace vulkan {
 
 absl::StatusOr<std::unique_ptr<ShaderModule>> ShaderModule::Create(
-    VkDevice device, const uint32_t *spirv_data, size_t spirv_size) {
+    VkDevice device, const uint32_t *spirv_data, size_t spirv_size,
+    const DynamicSymbols &symbols) {
   // Create the VkShaderModule object for the given SPIR-V code
   VkShaderModuleCreateInfo module_create_info = {};
   module_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -34,9 +35,9 @@ absl::StatusOr<std::unique_ptr<ShaderModule>> ShaderModule::Create(
   module_create_info.pCode = spirv_data;
 
   VkShaderModule shader_module = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(vkCreateShaderModule(device, &module_create_info,
-                                          /*pAllocator=*/nullptr,
-                                          &shader_module));
+  VK_RETURN_IF_ERROR(symbols.vkCreateShaderModule(device, &module_create_info,
+                                                  /*pAllocator=*/nullptr,
+                                                  &shader_module));
 
   // Reflect on the SPIR-V code to get pipeline layout information
   UVKC_ASSIGN_OR_RETURN(PipelineLayout pipeline_layout,
@@ -46,21 +47,23 @@ absl::StatusOr<std::unique_ptr<ShaderModule>> ShaderModule::Create(
   size_t num_sets = pipeline_layout.set_layouts.size();
   std::vector<VkDescriptorSetLayout> vk_set_layout(num_sets);
   for (int i = 0; i < num_sets; ++i) {
-    VK_RETURN_IF_ERROR(vkCreateDescriptorSetLayout(
+    VK_RETURN_IF_ERROR(symbols.vkCreateDescriptorSetLayout(
         device, &pipeline_layout.set_layouts[i].create_info,
         /*pAllocator=*/nullptr, &vk_set_layout[i]));
   }
 
-  return absl::WrapUnique(new ShaderModule(shader_module, device,
-                                           std::move(vk_set_layout),
-                                           std::move(pipeline_layout)));
+  return absl::WrapUnique(
+      new ShaderModule(shader_module, device, std::move(vk_set_layout),
+                       std::move(pipeline_layout), symbols));
 }
 
 ShaderModule::~ShaderModule() {
   for (const auto &set_layout : vk_set_layouts_) {
-    vkDestroyDescriptorSetLayout(device_, set_layout, /*pAllocator=*/nullptr);
+    symbols_.vkDestroyDescriptorSetLayout(device_, set_layout,
+                                          /*pAllocator=*/nullptr);
   }
-  vkDestroyShaderModule(device_, shader_module_, /*pAllocator=*/nullptr);
+  symbols_.vkDestroyShaderModule(device_, shader_module_,
+                                 /*pAllocator=*/nullptr);
 }
 
 VkShaderModule ShaderModule::shader_module() const { return shader_module_; }
@@ -125,11 +128,13 @@ std::vector<VkDescriptorPoolSize> ShaderModule::CalculateDescriptorPoolSize()
 
 ShaderModule::ShaderModule(VkShaderModule module, VkDevice device,
                            std::vector<VkDescriptorSetLayout> vk_set_layouts,
-                           PipelineLayout pipeline_layout)
+                           PipelineLayout pipeline_layout,
+                           const DynamicSymbols &symbols)
     : shader_module_(module),
       device_(device),
       vk_set_layouts_(std::move(vk_set_layouts)),
-      pipeline_layout_(std::move(pipeline_layout)) {}
+      pipeline_layout_(std::move(pipeline_layout)),
+      symbols_(symbols) {}
 
 }  // namespace vulkan
 }  // namespace uvkc

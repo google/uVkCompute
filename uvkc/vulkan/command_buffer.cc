@@ -20,8 +20,9 @@
 namespace uvkc {
 namespace vulkan {
 
-CommandBuffer::CommandBuffer(VkDevice device, VkCommandBuffer command_buffer)
-    : command_buffer_(command_buffer), device_(device) {}
+CommandBuffer::CommandBuffer(VkDevice device, VkCommandBuffer command_buffer,
+                             const DynamicSymbols &symbols)
+    : command_buffer_(command_buffer), device_(device), symbols_(symbols) {}
 
 CommandBuffer::~CommandBuffer() = default;
 
@@ -35,11 +36,12 @@ absl::Status CommandBuffer::Begin() {
   begin_info.pNext = nullptr;
   begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   begin_info.pInheritanceInfo = nullptr;
-  return VkResultToStatus(vkBeginCommandBuffer(command_buffer_, &begin_info));
+  return VkResultToStatus(
+      symbols_.vkBeginCommandBuffer(command_buffer_, &begin_info));
 }
 
 absl::Status CommandBuffer::End() {
-  return VkResultToStatus(vkEndCommandBuffer(command_buffer_));
+  return VkResultToStatus(symbols_.vkEndCommandBuffer(command_buffer_));
 }
 
 void CommandBuffer::CopyBuffer(const Buffer &src_buffer, size_t src_offset,
@@ -49,28 +51,30 @@ void CommandBuffer::CopyBuffer(const Buffer &src_buffer, size_t src_offset,
   region.srcOffset = src_offset;
   region.dstOffset = dst_offset;
   region.size = length;
-  vkCmdCopyBuffer(command_buffer_, src_buffer.buffer(), dst_buffer.buffer(),
-                  /*regionCount=*/1, &region);
+  symbols_.vkCmdCopyBuffer(command_buffer_, src_buffer.buffer(),
+                           dst_buffer.buffer(),
+                           /*regionCount=*/1, &region);
 }
 
 void CommandBuffer::BindPipelineAndDescriptorSets(
     const Pipeline &pipeline,
     absl::Span<const BoundDescriptorSet> bound_descriptor_sets) {
-  vkCmdBindPipeline(command_buffer_, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    pipeline.pipeline());
+  symbols_.vkCmdBindPipeline(command_buffer_, VK_PIPELINE_BIND_POINT_COMPUTE,
+                             pipeline.pipeline());
 
   for (const auto &descriptor_set : bound_descriptor_sets) {
-    vkCmdBindDescriptorSets(command_buffer_, VK_PIPELINE_BIND_POINT_COMPUTE,
-                            pipeline.pipeline_layout(), descriptor_set.index,
-                            /*descriptorSetCount=*/1,
-                            /*pDescriptorSets=*/&descriptor_set.set,
-                            /*dynamicOffsetCount=*/0,
-                            /*pDynamicOffsets=*/nullptr);
+    symbols_.vkCmdBindDescriptorSets(
+        command_buffer_, VK_PIPELINE_BIND_POINT_COMPUTE,
+        pipeline.pipeline_layout(), descriptor_set.index,
+        /*descriptorSetCount=*/1,
+        /*pDescriptorSets=*/&descriptor_set.set,
+        /*dynamicOffsetCount=*/0,
+        /*pDynamicOffsets=*/nullptr);
   }
 }
 
 void CommandBuffer::Dispatch(uint32_t x, uint32_t y, uint32_t z) {
-  vkCmdDispatch(command_buffer_, x, y, z);
+  symbols_.vkCmdDispatch(command_buffer_, x, y, z);
 }
 
 }  // namespace vulkan

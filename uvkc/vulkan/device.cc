@@ -26,7 +26,7 @@ namespace vulkan {
 
 absl::StatusOr<std::unique_ptr<Device>> Device::Create(
     VkPhysicalDevice physical_device, uint32_t queue_family_index,
-    VkDevice device) {
+    VkDevice device, const DynamicSymbols &symbols) {
   VkCommandPoolCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   create_info.pNext = nullptr;
@@ -34,17 +34,17 @@ absl::StatusOr<std::unique_ptr<Device>> Device::Create(
   create_info.queueFamilyIndex = queue_family_index;
 
   VkCommandPool command_pool = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(vkCreateCommandPool(
+  VK_RETURN_IF_ERROR(symbols.vkCreateCommandPool(
       device, &create_info, /*pAllocator=*/nullptr, &command_pool));
 
-  return absl::WrapUnique(
-      new Device(device, physical_device, queue_family_index, command_pool));
+  return absl::WrapUnique(new Device(
+      device, physical_device, queue_family_index, command_pool, symbols));
 }
 
 Device::~Device() {
-  vkDeviceWaitIdle(device_);
-  vkDestroyCommandPool(device_, command_pool_, /*pAllocator=*/nullptr);
-  vkDestroyDevice(device_, /*pAllocator=*/nullptr);
+  symbols_.vkDeviceWaitIdle(device_);
+  symbols_.vkDestroyCommandPool(device_, command_pool_, /*pAllocator=*/nullptr);
+  symbols_.vkDestroyDevice(device_, /*pAllocator=*/nullptr);
 }
 
 absl::StatusOr<std::unique_ptr<Buffer>> Device::CreateBuffer(
@@ -59,12 +59,12 @@ absl::StatusOr<std::unique_ptr<Buffer>> Device::CreateBuffer(
   create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   VkBuffer buffer = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(
-      vkCreateBuffer(device_, &create_info, /*pAllocator=*/nullptr, &buffer));
+  VK_RETURN_IF_ERROR(symbols_.vkCreateBuffer(device_, &create_info,
+                                             /*pAllocator=*/nullptr, &buffer));
 
   // Get memory requirements for the buffer
   VkMemoryRequirements memory_requirements;
-  vkGetBufferMemoryRequirements(device_, buffer, &memory_requirements);
+  symbols_.vkGetBufferMemoryRequirements(device_, buffer, &memory_requirements);
 
   // Allocate memory for the buffer
   VkMemoryAllocateInfo allocate_info = {};
@@ -76,32 +76,34 @@ absl::StatusOr<std::unique_ptr<Buffer>> Device::CreateBuffer(
       SelectMemoryType(memory_requirements.memoryTypeBits, memory_flags));
 
   VkDeviceMemory memory = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(vkAllocateMemory(device_, &allocate_info,
-                                      /*pAlloator=*/nullptr, &memory));
+  VK_RETURN_IF_ERROR(symbols_.vkAllocateMemory(device_, &allocate_info,
+                                               /*pAlloator=*/nullptr, &memory));
 
   // Bind the memory to the buffer
   VK_RETURN_IF_ERROR(
-      vkBindBufferMemory(device_, buffer, memory, /*memoryOffset=*/0));
+      symbols_.vkBindBufferMemory(device_, buffer, memory, /*memoryOffset=*/0));
 
-  return std::make_unique<Buffer>(device_, memory, buffer);
+  return std::make_unique<Buffer>(device_, memory, buffer, symbols_);
 }
 
 absl::StatusOr<std::unique_ptr<ShaderModule>> Device::CreateShaderModule(
     const uint32_t *spirv_data, size_t spirv_size) {
-  return ShaderModule::Create(device_, spirv_data, spirv_size);
+  return ShaderModule::Create(device_, spirv_data, spirv_size, symbols_);
 }
 
 absl::StatusOr<std::unique_ptr<Pipeline>> Device::CreatePipeline(
     const ShaderModule &shader_module, const char *entry_point,
     absl::Span<Pipeline::SpecConstant> spec_constants) {
-  return Pipeline::Create(device_, shader_module, entry_point, spec_constants);
+  return Pipeline::Create(device_, shader_module, entry_point, spec_constants,
+                          symbols_);
 }
 
 absl::StatusOr<std::unique_ptr<DescriptorPool>> Device::CreateDescriptorPool(
     const ShaderModule &shader_module) {
   auto pool_sizes = shader_module.CalculateDescriptorPoolSize();
   return DescriptorPool::Create(device_, shader_module.num_sets(),
-                                {pool_sizes.data(), pool_sizes.size()});
+                                {pool_sizes.data(), pool_sizes.size()},
+                                symbols_);
 }
 
 absl::Status Device::AttachBufferToDescriptor(
@@ -138,9 +140,9 @@ absl::Status Device::AttachBufferToDescriptor(
     write.pTexelBufferView = nullptr;
   }
 
-  vkUpdateDescriptorSets(device_, write_sets.size(), write_sets.data(),
-                         /*descriptorCopyCount=*/0,
-                         /*pDescriptorCopies=*/nullptr);
+  symbols_.vkUpdateDescriptorSets(device_, write_sets.size(), write_sets.data(),
+                                  /*descriptorCopyCount=*/0,
+                                  /*pDescriptorCopies=*/nullptr);
   return absl::OkStatus();
 }
 
@@ -153,9 +155,9 @@ absl::StatusOr<std::unique_ptr<CommandBuffer>> Device::AllocateCommandBuffer() {
   allocate_info.commandBufferCount = 1;
 
   VkCommandBuffer command_buffer = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(
-      vkAllocateCommandBuffers(device_, &allocate_info, &command_buffer));
-  return std::make_unique<CommandBuffer>(device_, command_buffer);
+  VK_RETURN_IF_ERROR(symbols_.vkAllocateCommandBuffers(device_, &allocate_info,
+                                                       &command_buffer));
+  return std::make_unique<CommandBuffer>(device_, command_buffer, symbols_);
 }
 
 absl::Status Device::QueueSubmitAndWait(const CommandBuffer &command_buffer) {
@@ -165,8 +167,8 @@ absl::Status Device::QueueSubmitAndWait(const CommandBuffer &command_buffer) {
   fence_create_info.flags = 0;
 
   VkFence fence = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(vkCreateFence(device_, &fence_create_info,
-                                   /*pALlocator=*/nullptr, &fence));
+  VK_RETURN_IF_ERROR(symbols_.vkCreateFence(device_, &fence_create_info,
+                                            /*pALlocator=*/nullptr, &fence));
 
   VkCommandBuffer cmdbuf = command_buffer.command_buffer();
   VkSubmitInfo submit_info = {};
@@ -174,25 +176,29 @@ absl::Status Device::QueueSubmitAndWait(const CommandBuffer &command_buffer) {
   submit_info.commandBufferCount = 1;
   submit_info.pCommandBuffers = &cmdbuf;
 
-  VK_RETURN_IF_ERROR(vkQueueSubmit(queue_, 1, &submit_info, fence));
+  VK_RETURN_IF_ERROR(symbols_.vkQueueSubmit(queue_, 1, &submit_info, fence));
 
-  VK_RETURN_IF_ERROR(vkWaitForFences(device_, /*fenceCount=*/1, &fence,
-                                     /*waitAll=*/true, /*timeout=*/UINT64_MAX));
+  VK_RETURN_IF_ERROR(symbols_.vkWaitForFences(device_, /*fenceCount=*/1, &fence,
+                                              /*waitAll=*/true,
+                                              /*timeout=*/UINT64_MAX));
 
-  vkDestroyFence(device_, fence, /*pAllocator=*/nullptr);
+  symbols_.vkDestroyFence(device_, fence, /*pAllocator=*/nullptr);
   return absl::OkStatus();
 }
 
 Device::Device(VkDevice device, VkPhysicalDevice physical_device,
-               uint32_t queue_family_index, VkCommandPool command_pool)
+               uint32_t queue_family_index, VkCommandPool command_pool,
+               const DynamicSymbols &symbols)
     : device_(device),
       physical_device_(physical_device),
       memory_properties_(),
       queue_(VK_NULL_HANDLE),
       queue_family_index_(queue_family_index),
-      command_pool_(command_pool) {
-  vkGetPhysicalDeviceMemoryProperties(physical_device_, &memory_properties_);
-  vkGetDeviceQueue(device_, queue_family_index_, 0, &queue_);
+      command_pool_(command_pool),
+      symbols_(symbols) {
+  symbols_.vkGetPhysicalDeviceMemoryProperties(physical_device_,
+                                               &memory_properties_);
+  symbols_.vkGetDeviceQueue(device_, queue_family_index_, 0, &queue_);
 }
 
 absl::StatusOr<uint32_t> Device::SelectMemoryType(

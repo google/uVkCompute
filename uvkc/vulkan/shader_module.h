@@ -23,6 +23,7 @@
 
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
+#include "uvkc/vulkan/dynamic_symbols.h"
 #include "uvkc/vulkan/pipeline_util.h"
 
 namespace uvkc {
@@ -41,7 +42,8 @@ class ShaderModule {
   // with |spirv_size| 32-bit integers and creates descriptor set layout objects
   // for each descriptor set in the shader module.
   static absl::StatusOr<std::unique_ptr<ShaderModule>> Create(
-      VkDevice device, const uint32_t *spirv_data, size_t spirv_size);
+      VkDevice device, const uint32_t *spirv_data, size_t spirv_size,
+      const DynamicSymbols &symbols);
 
   ~ShaderModule();
 
@@ -73,9 +75,9 @@ class ShaderModule {
   std::vector<VkDescriptorPoolSize> CalculateDescriptorPoolSize() const;
 
  private:
-  explicit ShaderModule(VkShaderModule module, VkDevice device,
-                        std::vector<VkDescriptorSetLayout> vk_set_layouts,
-                        PipelineLayout pipeline_layout);
+  ShaderModule(VkShaderModule module, VkDevice device,
+               std::vector<VkDescriptorSetLayout> vk_set_layouts,
+               PipelineLayout pipeline_layout, const DynamicSymbols &symbols);
 
   VkShaderModule shader_module_;
 
@@ -85,6 +87,8 @@ class ShaderModule {
   // module. It matches 1:1 to the pipeline_layout_.set_layouts array.
   std::vector<VkDescriptorSetLayout> vk_set_layouts_;
   PipelineLayout pipeline_layout_;
+
+  const DynamicSymbols &symbols_;
 };
 
 }  // namespace vulkan

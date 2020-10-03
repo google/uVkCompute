@@ -28,5 +28,4 @@ uvkc_cc_binary(
     absl::flags_usage
     absl::strings
     uvkc::base::file
-    Vulkan::Vulkan
 )

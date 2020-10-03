@@ -18,6 +18,7 @@
 #include <vulkan/vulkan.h>
 
 #include "absl/status/statusor.h"
+#include "uvkc/vulkan/dynamic_symbols.h"
 
 namespace uvkc {
 namespace vulkan {
@@ -30,7 +31,8 @@ class Buffer {
  public:
   // Wraps a Vulkan |buffer| and its backing |memory| from |device| and manages
   // deallocation of the |memory| and freeing of the |buffer|.
-  Buffer(VkDevice device, VkDeviceMemory memory, VkBuffer buffer);
+  Buffer(VkDevice device, VkDeviceMemory memory, VkBuffer buffer,
+         const DynamicSymbols &symbols);
 
   ~Buffer();
 
@@ -48,6 +50,8 @@ class Buffer {
 
   VkDevice device_;
   VkDeviceMemory memory_;
+
+  const DynamicSymbols &symbols_;
 };
 
 }  // namespace vulkan

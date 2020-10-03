@@ -22,6 +22,7 @@
 
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
+#include "uvkc/vulkan/dynamic_symbols.h"
 
 namespace uvkc {
 namespace vulkan {
@@ -37,7 +38,8 @@ class DescriptorPool {
   // from |device|.
   static absl::StatusOr<std::unique_ptr<DescriptorPool>> Create(
       VkDevice device, uint32_t max_sets,
-      absl::Span<VkDescriptorPoolSize> descriptor_counts);
+      absl::Span<VkDescriptorPoolSize> descriptor_counts,
+      const DynamicSymbols &symbols);
 
   ~DescriptorPool();
 
@@ -47,11 +49,14 @@ class DescriptorPool {
   AllocateDescriptorSets(absl::Span<const VkDescriptorSetLayout> set_layouts);
 
  private:
-  DescriptorPool(VkDescriptorPool pool, VkDevice device);
+  DescriptorPool(VkDescriptorPool pool, VkDevice device,
+                 const DynamicSymbols &symbols);
 
   VkDescriptorPool pool_;
 
   VkDevice device_;
+
+  const DynamicSymbols &symbols_;
 };
 
 }  // namespace vulkan

@@ -19,6 +19,8 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "uvkc/base/status.h"
+#include "uvkc/vulkan/dynamic_symbols.h"
 #include "uvkc/vulkan/status_util.h"
 
 namespace uvkc {
@@ -41,13 +43,15 @@ VkApplicationInfo GetDefaultApplicationInfo(const char *app_name) {
 // Selects a queue family with the required |queue_flags| in |physical_device|
 // and returns the queue family index.
 absl::StatusOr<uint32_t> SelectQueueFamily(VkPhysicalDevice physical_device,
-                                           VkQueueFlags queue_flags) {
+                                           VkQueueFlags queue_flags,
+                                           const DynamicSymbols &symbols) {
   uint32_t count;
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count, nullptr);
+  symbols.vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count,
+                                                   nullptr);
 
   std::vector<VkQueueFamilyProperties> queue_families(count);
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count,
-                                           queue_families.data());
+  symbols.vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count,
+                                                   queue_families.data());
 
   for (int index = 0; index < count; ++index) {
     const VkQueueFamilyProperties &properties = queue_families[index];
@@ -61,7 +65,8 @@ absl::StatusOr<uint32_t> SelectQueueFamily(VkPhysicalDevice physical_device,
 
 }  // namespace
 
-absl::StatusOr<std::unique_ptr<Driver>> Driver::Create(const char *app_name) {
+absl::StatusOr<std::unique_ptr<Driver>> Driver::Create(
+    const char *app_name, DynamicSymbols *symbols) {
   auto app_info = GetDefaultApplicationInfo(app_name);
 
   VkInstanceCreateInfo create_info = {};
@@ -75,27 +80,32 @@ absl::StatusOr<std::unique_ptr<Driver>> Driver::Create(const char *app_name) {
   create_info.ppEnabledExtensionNames = nullptr;
 
   VkInstance instance = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(
-      vkCreateInstance(&create_info, /*pAllocator=*/nullptr, &instance));
+  VK_RETURN_IF_ERROR(symbols->vkCreateInstance(
+      &create_info, /*pAllocator=*/nullptr, &instance));
 
-  return absl::WrapUnique(new Driver(instance));
+  UVKC_RETURN_IF_ERROR(symbols->LoadFromInstance(instance));
+
+  return absl::WrapUnique(new Driver(instance, *symbols));
 }
 
-Driver::~Driver() { vkDestroyInstance(instance_, /*pAllocator=*/nullptr); }
+Driver::~Driver() {
+  symbols_.vkDestroyInstance(instance_, /*pAllocator=*/nullptr);
+}
 
 absl::StatusOr<std::vector<Driver::PhysicalDeviceInfo>>
 Driver::EnumeratePhysicalDevices() {
   uint32_t count = 0;
-  VK_RETURN_IF_ERROR(vkEnumeratePhysicalDevices(instance_, &count, nullptr));
+  VK_RETURN_IF_ERROR(
+      symbols_.vkEnumeratePhysicalDevices(instance_, &count, nullptr));
 
   std::vector<VkPhysicalDevice> devices(count);
   VK_RETURN_IF_ERROR(
-      vkEnumeratePhysicalDevices(instance_, &count, devices.data()));
+      symbols_.vkEnumeratePhysicalDevices(instance_, &count, devices.data()));
 
   std::vector<PhysicalDeviceInfo> infos(count);
   for (int i = 0; i < count; ++i) {
     infos[i].handle = devices[i];
-    vkGetPhysicalDeviceProperties(devices[i], &infos[i].properties);
+    symbols_.vkGetPhysicalDeviceProperties(devices[i], &infos[i].properties);
   }
 
   return infos;
@@ -103,8 +113,9 @@ Driver::EnumeratePhysicalDevices() {
 
 absl::StatusOr<std::unique_ptr<Device>> Driver::CreateDevice(
     VkPhysicalDevice physical_device, VkQueueFlags queue_flags) {
-  UVKC_ASSIGN_OR_RETURN(uint32_t queue_family_index,
-                        SelectQueueFamily(physical_device, queue_flags));
+  UVKC_ASSIGN_OR_RETURN(
+      uint32_t queue_family_index,
+      SelectQueueFamily(physical_device, queue_flags, symbols_));
 
   float queue_priority = 1.0;
 
@@ -129,12 +140,14 @@ absl::StatusOr<std::unique_ptr<Device>> Driver::CreateDevice(
   device_create_info.pEnabledFeatures = nullptr;
 
   VkDevice device;
-  VK_RETURN_IF_ERROR(vkCreateDevice(physical_device, &device_create_info,
-                                    /*pAllocator=*/nullptr, &device));
-  return Device::Create(physical_device, queue_family_index, device);
+  VK_RETURN_IF_ERROR(symbols_.vkCreateDevice(physical_device,
+                                             &device_create_info,
+                                             /*pAllocator=*/nullptr, &device));
+  return Device::Create(physical_device, queue_family_index, device, symbols_);
 }
 
-Driver::Driver(VkInstance instance) : instance_(instance) {}
+Driver::Driver(VkInstance instance, const DynamicSymbols &symbols)
+    : instance_(instance), symbols_(symbols) {}
 
 }  // namespace vulkan
 }  // namespace uvkc

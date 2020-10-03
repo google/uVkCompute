@@ -20,6 +20,7 @@
 #include "absl/status/statusor.h"
 #include "uvkc/vulkan/device.h"
 #include "uvkc/vulkan/driver.h"
+#include "uvkc/vulkan/dynamic_symbols.h"
 
 namespace uvkc {
 namespace benchmark {
@@ -31,11 +32,13 @@ namespace benchmark {
 // Benchmark applications can subclass this struct further to add more such
 // fields for their specific cases.
 struct VulkanContext {
+  std::unique_ptr<vulkan::DynamicSymbols> symbols;
   std::unique_ptr<vulkan::Driver> driver;
   std::vector<vulkan::Driver::PhysicalDeviceInfo> physical_devices;
   std::vector<std::unique_ptr<vulkan::Device>> devices;
 
   VulkanContext(
+      std::unique_ptr<vulkan::DynamicSymbols> symbols,
       std::unique_ptr<vulkan::Driver> driver,
       std::vector<vulkan::Driver::PhysicalDeviceInfo> physical_devices,
       std::vector<std::unique_ptr<vulkan::Device>> devices);

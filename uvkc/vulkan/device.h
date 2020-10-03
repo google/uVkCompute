@@ -25,6 +25,7 @@
 #include "uvkc/vulkan/buffer.h"
 #include "uvkc/vulkan/command_buffer.h"
 #include "uvkc/vulkan/descriptor_pool.h"
+#include "uvkc/vulkan/dynamic_symbols.h"
 #include "uvkc/vulkan/pipeline.h"
 #include "uvkc/vulkan/shader_module.h"
 
@@ -42,7 +43,7 @@ class Device {
   // Wraps a logical |device| from |physical_device| of |queue_family_index|.
   static absl::StatusOr<std::unique_ptr<Device>> Create(
       VkPhysicalDevice physical_device, uint32_t queue_family_index,
-      VkDevice device);
+      VkDevice device, const DynamicSymbols &symbols);
 
   ~Device();
 
@@ -91,7 +92,8 @@ class Device {
 
  private:
   Device(VkDevice device, VkPhysicalDevice physical_device,
-         uint32_t queue_family_index, VkCommandPool command_pool);
+         uint32_t queue_family_index, VkCommandPool command_pool,
+         const DynamicSymbols &symbols);
 
   // Selects a memory type among |supported_memory_types| that statisfies
   // |desired_memory_properties| and returns its array index in
@@ -109,6 +111,8 @@ class Device {
   uint32_t queue_family_index_;
 
   VkCommandPool command_pool_;
+
+  const DynamicSymbols &symbols_;
 };
 
 }  // namespace vulkan

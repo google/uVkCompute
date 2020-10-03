@@ -20,12 +20,13 @@
 namespace uvkc {
 namespace vulkan {
 
-Buffer::Buffer(VkDevice device, VkDeviceMemory memory, VkBuffer buffer)
-    : buffer_(buffer), device_(device), memory_(memory) {}
+Buffer::Buffer(VkDevice device, VkDeviceMemory memory, VkBuffer buffer,
+               const DynamicSymbols& symbols)
+    : buffer_(buffer), device_(device), memory_(memory), symbols_(symbols) {}
 
 Buffer::~Buffer() {
-  vkDestroyBuffer(device_, buffer_, /*pAllocator=*/nullptr);
-  vkFreeMemory(device_, memory_, /*pAllocator=*/nullptr);
+  symbols_.vkDestroyBuffer(device_, buffer_, /*pAllocator=*/nullptr);
+  symbols_.vkFreeMemory(device_, memory_, /*pAllocator=*/nullptr);
 }
 
 VkBuffer Buffer::buffer() const { return buffer_; }
@@ -33,11 +34,11 @@ VkBuffer Buffer::buffer() const { return buffer_; }
 absl::StatusOr<void*> Buffer::MapMemory(size_t offset, size_t size) {
   void* data = nullptr;
   VK_RETURN_IF_ERROR(
-      vkMapMemory(device_, memory_, offset, size, /*flags=*/0, &data));
+      symbols_.vkMapMemory(device_, memory_, offset, size, /*flags=*/0, &data));
   return data;
 }
 
-void Buffer::UnmapMemory() { vkUnmapMemory(device_, memory_); }
+void Buffer::UnmapMemory() { symbols_.vkUnmapMemory(device_, memory_); }
 
 }  // namespace vulkan
 }  // namespace uvkc

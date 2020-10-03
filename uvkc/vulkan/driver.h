@@ -22,6 +22,7 @@
 
 #include "absl/status/statusor.h"
 #include "uvkc/vulkan/device.h"
+#include "uvkc/vulkan/dynamic_symbols.h"
 
 namespace uvkc {
 namespace vulkan {
@@ -34,7 +35,8 @@ namespace vulkan {
 class Driver {
  public:
   // Creates a Vulkan driver for an application with the given |app_name|.
-  static absl::StatusOr<std::unique_ptr<Driver>> Create(const char *app_name);
+  static absl::StatusOr<std::unique_ptr<Driver>> Create(
+      const char *app_name, DynamicSymbols *symbols);
 
   ~Driver();
 
@@ -52,9 +54,11 @@ class Driver {
       VkPhysicalDevice physical_device, VkQueueFlags queue_flags);
 
  private:
-  explicit Driver(VkInstance instance);
+  explicit Driver(VkInstance instance, const DynamicSymbols &symbols);
 
   VkInstance instance_;
+
+  const DynamicSymbols &symbols_;
 };
 
 }  // namespace vulkan

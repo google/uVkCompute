@@ -63,6 +63,5 @@ uvkc_cc_library(
     absl::statusor
     uvkc::vulkan::device
     uvkc::vulkan::driver
-    Vulkan::Vulkan
 )
 

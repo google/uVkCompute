@@ -21,6 +21,7 @@
 
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
+#include "uvkc/vulkan/dynamic_symbols.h"
 #include "uvkc/vulkan/shader_module.h"
 
 namespace uvkc {
@@ -50,7 +51,8 @@ class Pipeline {
   // |shader_module|, with the provided |spec_constants|.
   static absl::StatusOr<std::unique_ptr<Pipeline>> Create(
       VkDevice device, const ShaderModule &shader_module,
-      const char *entry_point, absl::Span<SpecConstant> spec_constants);
+      const char *entry_point, absl::Span<SpecConstant> spec_constants,
+      const DynamicSymbols &symbols);
 
   ~Pipeline();
 
@@ -61,12 +63,15 @@ class Pipeline {
   VkPipelineLayout pipeline_layout() const;
 
  private:
-  Pipeline(VkPipeline pipeline, VkDevice device, VkPipelineLayout layout);
+  Pipeline(VkPipeline pipeline, VkDevice device, VkPipelineLayout layout,
+           const DynamicSymbols &symbols);
 
   VkPipeline pipeline_;
 
   VkDevice device_;
   VkPipelineLayout pipeline_layout_;
+
+  const DynamicSymbols &symbols_;
 };
 
 }  // namespace vulkan

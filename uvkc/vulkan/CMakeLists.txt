@@ -19,7 +19,10 @@ uvkc_cc_library(
     "buffer.h"
   SRCS
     "buffer.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
+    ::dynamic_symbols
     Vulkan::Vulkan
 )
 
@@ -30,7 +33,10 @@ uvkc_cc_library(
     "command_buffer.h"
   SRCS
     "command_buffer.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
+    ::dynamic_symbols
     ::status_util
     ::pipeline
     absl::statusor
@@ -44,6 +50,8 @@ uvkc_cc_library(
     "dynamic_symbols.h"
   SRCS
     "dynamic_symbols.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
     absl::span
     absl::statusor
@@ -59,10 +67,15 @@ uvkc_cc_library(
     "descriptor_pool.h"
   SRCS
     "descriptor_pool.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
+    ::dynamic_symbols
     ::status_util
     absl::span
+    absl::status
     absl::statusor
+    absl::strings
     Vulkan::Vulkan
 )
 
@@ -73,10 +86,13 @@ uvkc_cc_library(
     "device.h"
   SRCS
     "device.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
     ::buffer
     ::command_buffer
     ::descriptor_pool
+    ::dynamic_symbols
     ::pipeline
     ::shader_module
     absl::statusor
@@ -90,8 +106,11 @@ uvkc_cc_library(
     "driver.h"
   SRCS
     "driver.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
     ::device
+    ::dynamic_symbols
     ::status_util
     absl::statusor
     Vulkan::Vulkan
@@ -104,7 +123,10 @@ uvkc_cc_library(
     "pipeline.h"
   SRCS
     "pipeline.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
+    ::dynamic_symbols
     ::shader_module
     ::status_util
     absl::span
@@ -123,6 +145,8 @@ uvkc_cc_library(
     "${UVKC_SOURCE_ROOT}/third_party/SPIRV-Reflect/spirv_reflect.c"
   INCLUDES
     "${UVKC_SOURCE_ROOT}/third_party/SPIRV-Reflect"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
     Vulkan::Vulkan
 )
@@ -134,7 +158,10 @@ uvkc_cc_library(
     "shader_module.h"
   SRCS
     "shader_module.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
+    ::dynamic_symbols
     ::pipeline_util
     ::status_util
     absl::span
@@ -149,6 +176,8 @@ uvkc_cc_library(
     "status_util.h"
   SRCS
     "status_util.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
   DEPS
     absl::status
     Vulkan::Vulkan

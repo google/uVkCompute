@@ -24,7 +24,8 @@ namespace vulkan {
 
 absl::StatusOr<std::unique_ptr<DescriptorPool>> DescriptorPool::Create(
     VkDevice device, uint32_t max_sets,
-    absl::Span<VkDescriptorPoolSize> descriptor_counts) {
+    absl::Span<VkDescriptorPoolSize> descriptor_counts,
+    const DynamicSymbols &symbols) {
   VkDescriptorPoolCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   create_info.pNext = nullptr;
@@ -34,14 +35,15 @@ absl::StatusOr<std::unique_ptr<DescriptorPool>> DescriptorPool::Create(
   create_info.pPoolSizes = descriptor_counts.data();
 
   VkDescriptorPool pool = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(vkCreateDescriptorPool(device, &create_info,
-                                            /*pAllocator=*/nullptr, &pool));
+  VK_RETURN_IF_ERROR(symbols.vkCreateDescriptorPool(device, &create_info,
+                                                    /*pAllocator=*/nullptr,
+                                                    &pool));
 
-  return absl::WrapUnique(new DescriptorPool(pool, device));
+  return absl::WrapUnique(new DescriptorPool(pool, device, symbols));
 }
 
 DescriptorPool::~DescriptorPool() {
-  vkDestroyDescriptorPool(device_, pool_, /*pALlocator=*/nullptr);
+  symbols_.vkDestroyDescriptorPool(device_, pool_, /*pALlocator=*/nullptr);
 }
 
 absl::StatusOr<std::unordered_map<VkDescriptorSetLayout, VkDescriptorSet>>
@@ -56,7 +58,7 @@ DescriptorPool::AllocateDescriptorSets(
 
   std::vector<VkDescriptorSet> sets(set_layouts.size());
   VK_RETURN_IF_ERROR(
-      vkAllocateDescriptorSets(device_, &allocate_info, sets.data()));
+      symbols_.vkAllocateDescriptorSets(device_, &allocate_info, sets.data()));
   std::unordered_map<VkDescriptorSetLayout, VkDescriptorSet> layout_set_map;
   for (int i = 0; i < set_layouts.size(); ++i) {
     layout_set_map[set_layouts[i]] = sets[i];
@@ -65,8 +67,9 @@ DescriptorPool::AllocateDescriptorSets(
   return layout_set_map;
 }
 
-DescriptorPool::DescriptorPool(VkDescriptorPool pool, VkDevice device)
-    : pool_(pool), device_(device) {}
+DescriptorPool::DescriptorPool(VkDescriptorPool pool, VkDevice device,
+                               const DynamicSymbols &symbols)
+    : pool_(pool), device_(device), symbols_(symbols) {}
 
 }  // namespace vulkan
 }  // namespace uvkc

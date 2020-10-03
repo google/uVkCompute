@@ -82,7 +82,8 @@ size_t Pipeline::SpecConstant::size() const {
 
 absl::StatusOr<std::unique_ptr<Pipeline>> Pipeline::Create(
     VkDevice device, const ShaderModule &shader_module, const char *entry_point,
-    absl::Span<Pipeline::SpecConstant> spec_constants) {
+    absl::Span<Pipeline::SpecConstant> spec_constants,
+    const DynamicSymbols &symbols) {
   // Pack the specialization constant into an byte buffer
   SpecConstantData spec_constant_data = PackSpecConstantData(spec_constants);
   VkSpecializationInfo spec_constant_info = {};
@@ -122,8 +123,8 @@ absl::StatusOr<std::unique_ptr<Pipeline>> Pipeline::Create(
 
   VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
   VK_RETURN_IF_ERROR(
-      vkCreatePipelineLayout(device, &pipeline_layout_create_info,
-                             /*pAllocator=*/nullptr, &pipeline_layout));
+      symbols.vkCreatePipelineLayout(device, &pipeline_layout_create_info,
+                                     /*pAllocator=*/nullptr, &pipeline_layout));
 
   VkComputePipelineCreateInfo pipeline_create_info = {};
   pipeline_create_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -135,17 +136,19 @@ absl::StatusOr<std::unique_ptr<Pipeline>> Pipeline::Create(
   pipeline_create_info.basePipelineIndex = 0;
 
   VkPipeline pipeline = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(
-      vkCreateComputePipelines(device, /*pipelineCache=*/VK_NULL_HANDLE,
-                               /*createInfoCount=*/1, &pipeline_create_info,
-                               /*pAllocator=*/nullptr, &pipeline));
+  VK_RETURN_IF_ERROR(symbols.vkCreateComputePipelines(
+      device, /*pipelineCache=*/VK_NULL_HANDLE,
+      /*createInfoCount=*/1, &pipeline_create_info,
+      /*pAllocator=*/nullptr, &pipeline));
 
-  return absl::WrapUnique(new Pipeline(pipeline, device, pipeline_layout));
+  return absl::WrapUnique(
+      new Pipeline(pipeline, device, pipeline_layout, symbols));
 }
 
 Pipeline::~Pipeline() {
-  vkDestroyPipeline(device_, pipeline_, /*pAllocator=*/nullptr);
-  vkDestroyPipelineLayout(device_, pipeline_layout_, /*pAllocator=*/nullptr);
+  symbols_.vkDestroyPipeline(device_, pipeline_, /*pAllocator=*/nullptr);
+  symbols_.vkDestroyPipelineLayout(device_, pipeline_layout_,
+                                   /*pAllocator=*/nullptr);
 }
 
 VkPipeline Pipeline::pipeline() const { return pipeline_; }
@@ -153,8 +156,11 @@ VkPipeline Pipeline::pipeline() const { return pipeline_; }
 VkPipelineLayout Pipeline::pipeline_layout() const { return pipeline_layout_; }
 
 Pipeline::Pipeline(VkPipeline pipeline, VkDevice device,
-                   VkPipelineLayout layout)
-    : pipeline_(pipeline), device_(device), pipeline_layout_(layout) {}
+                   VkPipelineLayout layout, const DynamicSymbols &symbols)
+    : pipeline_(pipeline),
+      device_(device),
+      pipeline_layout_(layout),
+      symbols_(symbols) {}
 
 }  // namespace vulkan
 }  // namespace uvkc
