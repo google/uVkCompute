@@ -39,10 +39,12 @@ This repository requires a common C++ project development environment:
 * [CMake][cmake] with version >= 3.7
 * (Optional) the [Ninja][ninja] build system
 * A C/C++ compiler that supports C11/C++14
+* Python3
 
 It additionally requires the [Vulkan SDK][vulkan-sdk], which will be used for
 both the Vulkan shared library and shader compilers like `glslc` for (GLSL)
-and `dxc` (for HLSL).
+and `dxc` (for HLSL). Please make sure you have set the `VULKAN_SDK` environment
+variable.
 
 ## Building
 

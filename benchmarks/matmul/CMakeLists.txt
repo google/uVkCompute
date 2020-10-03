@@ -12,21 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-uvkc_glsl_shader_instance(
+uvkc_glsl_shader_permutation(
   NAME
-    copy_storage_buffer_scalar_shader
+    matmul_scalar_block_shader
   SRC
-    "copy_storage_buffer_scalar.glsl"
+    "matmul_scalar_block.glsl"
+  PERMUTATION
+    "TILE_M=[32|64]"
+    "TILE_N=[64|128]"
 )
 
 uvkc_cc_binary(
   NAME
-    copy_storage_buffer_scalar
+    matmul_scalar_block
   SRCS
-    "copy_storage_buffer_scalar_main.cc"
+    "matmul_scalar_block_main.cc"
   DEPS
-    ::copy_storage_buffer_scalar_shader
+    ::matmul_scalar_block_shader
     benchmark::benchmark
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
 )
+

@@ -29,7 +29,7 @@
 static const char kBenchmarkName[] = "copy_storage_buffer_scalar";
 
 static uint32_t kShaderCode[] = {
-#include "copy_storage_buffer_scalar_shader_spirv_code.inc"
+#include "copy_storage_buffer_scalar_shader_spirv_instance.inc"
 };
 
 static void CopyStorageBufferScalar(::benchmark::State &state,

@@ -42,11 +42,14 @@ include(uvkc_find_vulkan_toolchain)
 include(uvkc_utils)
 include(uvkc_cc_library)
 include(uvkc_cc_binary)
-include(uvkc_glsl_shader_module)
+include(uvkc_glsl_shader_instance)
+include(uvkc_glsl_shader_permutation)
 
 #-------------------------------------------------------------------------------
 # Third-party dependencies
 #-------------------------------------------------------------------------------
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 add_subdirectory(third_party)
 

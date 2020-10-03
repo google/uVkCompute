@@ -14,23 +14,23 @@
 
 include(CMakeParseArguments)
 
-# Generates C++ code for SPIR-V shader module
+# Generates a C array variable for a SPIR-V shader module
 #
 # Given a GLSL shader 'foo' defined in root/a/b, this function defines a CMake
 # target 'root_a_b_foo' and its alias 'root::a::b::foo', which invokes glslc
 # to compile the GLSL source code into SPIR-V as an array of uint32_t numbers,
 # so that it can be included in C++ source code. The generated SPIR-V uint32_t
-# array will be put in a file named as 'foo_spirv_code.inc' under the build
+# array will be put in a file named as 'foo_spirv_instance.inc' under the build
 # directory for root/a/b. A target depending on 'root::a::b::foo' will have
 # the proper include directory set up so it can directly include the
-# 'foo_spirv_code.inc' file.
+# 'foo_spirv_instance.inc' file.
 #
 # Parameters:
 #
-# * NAME: the name of this shader module
-# * SRC: the GLSL source code for this shader module
+# * NAME: the name of this shader instance
+# * SRC: the GLSL source code for this shader instance
 # * GLSLC_ARGS: the list of additional arguments to glslc
-function(uvkc_glsl_shader_module)
+function(uvkc_glsl_shader_instance)
   cmake_parse_arguments(
     _RULE
     ""
@@ -48,7 +48,7 @@ function(uvkc_glsl_shader_module)
   # The list of output artifacts
   set(_OUTS "")
 
-  set(_SPIRV_CODE "${CMAKE_CURRENT_BINARY_DIR}/${_RULE_NAME}_spirv_code.inc")
+  set(_SPIRV_CODE "${CMAKE_CURRENT_BINARY_DIR}/${_RULE_NAME}_spirv_instance.inc")
   list(APPEND _OUTS "${_SPIRV_CODE}")
 
   # Add a custom command to invoke glslc to compile the GLSL source code
@@ -80,7 +80,7 @@ function(uvkc_glsl_shader_module)
       ${_OUTS}
   )
 
-  # Define an interface library with the name of this shader module so that
+  # Define an interface library with the name of this shader instance so that
   # we can depend on it in other targets.
   add_library(${_NAME} INTERFACE)
   # Create an alis library with the namespaced name for dependency reference use
