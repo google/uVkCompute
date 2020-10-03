@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "uvkc/base/target_platform.h"
+
+#if defined(UVKC_PLATFORM_ANDROID) || defined(UVKC_PLATFORM_APPLE) || \
+    defined(UVKC_PLATFORM_LINUX)
+
 #include <cstdio>
 #include <memory>
 
@@ -64,3 +69,5 @@ absl::Status WriteFile(const std::string& path, const char* content_data,
 }
 
 }  // namespace uvkc
+
+#endif  // UVKC_PLATFORM_*

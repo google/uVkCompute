@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef UVKC_STATUS_H_
-#define UVKC_STATUS_H_
+#ifndef UVKC_FILE_H_
+#define UVKC_FILE_H_
 
 #include <string>
 
@@ -32,4 +32,4 @@ absl::Status WriteFile(const std::string& path, const char* content_data,
 
 }  // namespace uvkc
 
-#endif  // UVKC_STATUS_H_
+#endif  // UVKC_FILE_H_
