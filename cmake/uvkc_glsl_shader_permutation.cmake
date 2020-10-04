@@ -76,11 +76,13 @@ function(uvkc_glsl_shader_permutation)
   set(_SPIRV_CODE "${CMAKE_CURRENT_BINARY_DIR}/${_RULE_NAME}_spirv_permutation.inc")
   list(APPEND _OUTS "${_SPIRV_CODE}")
 
-  # Quote each define so that we passing to glslc they are treated as
-  # proper strings.
-  set(_PERMUTATION ${_RULE_PERMUTATION})
-  list(TRANSFORM _PERMUTATION PREPEND "\"")
-  list(TRANSFORM _PERMUTATION APPEND "\"")
+  set(_PERMUTATION "")
+  foreach(_MACRO IN LISTS _RULE_PERMUTATION)
+    list(APPEND _PERMUTATION "--define")
+    # Quote each define so that we passing to glslc they are treated as
+    # proper strings.
+    list(APPEND _PERMUTATION "\"${_MACRO}\"")
+  endforeach()
 
   # Add a custom command to invoke glslc to compile the GLSL source code
   add_custom_command(
@@ -92,7 +94,7 @@ function(uvkc_glsl_shader_permutation)
         "${CMAKE_CURRENT_SOURCE_DIR}/${_RULE_SRC}"
         -o "${_SPIRV_CODE}"
         --glslc "${Vulkan_GLSLC_EXECUTABLE}"
-        --define ${_PERMUTATION}
+        ${_PERMUTATION}
     WORKING_DIRECTORY
       "${CMAKE_CURRENT_BINARY_DIR}"
     MAIN_DEPENDENCY

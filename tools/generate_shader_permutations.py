@@ -46,9 +46,8 @@ def parse_arguments():
   parser.add_argument(
       "--define",
       metavar="<macro-choices>",
-      nargs="+",
       type=str,
-      action="extend",
+      action="append",
       help="A #define and its choices in the format of 'FOO=[BAR|BARZ]'")
   parser.add_argument(
       "--glslc",
