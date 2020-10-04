@@ -14,50 +14,48 @@
 
 #include "uvkc/base/target_platform.h"
 
-#if defined(UVKC_PLATFORM_ANDROID) || defined(UVKC_PLATFORM_APPLE) || \
-    defined(UVKC_PLATFORM_LINUX)
+#if defined(UVKC_PLATFORM_WINDOWS)
 
-#include <dlfcn.h>
+#include <windows.h>
 
 #include "absl/memory/memory.h"
-#include "absl/strings/str_cat.h"
 #include "uvkc/base/dynamic_library.h"
 
 namespace uvkc {
 
-class DynamicLibraryPosix : public DynamicLibrary {
+class DynamicLibraryWin : public DynamicLibrary {
  public:
-  ~DynamicLibraryPosix() override { ::dlclose(library_); }
+  ~DynamicLibraryWin() override { ::FreeLibrary(library_); }
 
   static absl::StatusOr<std::unique_ptr<DynamicLibrary>> Load(
       absl::Span<const char *const> search_file_names) {
     for (int i = 0; i < search_file_names.size(); ++i) {
-      void *library = ::dlopen(search_file_names[i], RTLD_LAZY | RTLD_LOCAL);
+      HMODULE library = ::LoadLibraryA(search_file_names[i]);
       if (library) {
         return absl::WrapUnique(
-            new DynamicLibraryPosix(search_file_names[i], library));
+            new DynamicLibraryWin(search_file_names[i], library));
       }
     }
-    std::string error =
-        absl::StrCat("Unable to open dynamic library: ", dlerror());
-    return absl::UnavailableError(error.c_str());
+
+    return absl::UnavailableError(
+        "Unable to open dynamic library, not found on search paths");
   }
 
   void *GetSymbol(const char *symbol_name) const override {
-    return ::dlsym(library_, symbol_name);
+    return reinterpret_cast<void *>(::GetProcAddress(library_, symbol_name));
   }
 
  private:
-  DynamicLibraryPosix(std::string file_name, void *library)
+  DynamicLibraryWin(std::string file_name, HMODULE library)
       : DynamicLibrary(file_name), library_(library) {}
 
-  void *library_;
+  HMODULE library_;
 };
 
 // static
 absl::StatusOr<std::unique_ptr<DynamicLibrary>> DynamicLibrary::Load(
     absl::Span<const char *const> search_file_names) {
-  return DynamicLibraryPosix::Load(search_file_names);
+  return DynamicLibraryWin::Load(search_file_names);
 }
 
 }  // namespace uvkc

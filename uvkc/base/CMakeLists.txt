@@ -18,7 +18,7 @@ uvkc_cc_library(
   HDRS
     "file.h"
   SRCS
-    "file_posix.cc"
+    "file.cc"
   DEPS
     absl::status
     absl::statusor
@@ -40,6 +40,7 @@ uvkc_cc_library(
     "dynamic_library.h"
   SRCS
     "dynamic_library_posix.cc"
+    "dynamic_library_win32.cc"
   DEPS
     absl::span
     absl::statusor
