@@ -1,0 +1,60 @@
+version: 2.1
+
+orbs:
+  docker: circleci/docker@1.4.0
+
+jobs:
+  build-android:
+    machine: true
+    steps:
+      - docker/pull:
+        images: antiagainst/uvkcompute-ci:latest
+      - checkout
+      - run:
+          name: Cross compile towards Android
+          command: |
+            docker run \
+              --volume=$PWD:/usr/src/uVkCompute \
+              --workdir=/usr/src/uVkCompute \
+              --rm \
+              antiagainst/uvkcompute-ci:latest \
+              tools/docker/build_android.sh
+  build-linux-debug:
+    machine: true
+    steps:
+      - docker/pull:
+        images: antiagainst/uvkcompute-ci:latest
+      - checkout
+      - run:
+          name: Debug build on Linux
+          command: |
+            docker run \
+              --volume=$PWD:/usr/src/uVkCompute \
+              --workdir=/usr/src/uVkCompute \
+              --rm \
+              antiagainst/uvkcompute-ci:latest \
+              tools/docker/build_linux.sh Debug
+  build-linux-release:
+    machine: true
+    steps:
+      - docker/pull:
+        images: antiagainst/uvkcompute-ci:latest
+      - checkout
+      - run:
+          name: Release build on Linux
+          command: |
+            docker run \
+              --volume=$PWD:/usr/src/uVkCompute \
+              --workdir=/usr/src/uVkCompute \
+              --rm \
+              antiagainst/uvkcompute-ci:latest \
+              tools/docker/build_linux.sh Release
+
+workflows:
+  build-linux:
+    jobs:
+      - build-linux-debug
+      - build-linux-release
+  build-android:
+    jobs:
+      - build-android
