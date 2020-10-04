@@ -2,9 +2,10 @@ version: 2.1
 
 orbs:
   docker: circleci/docker@1.4.0
+  windows: circleci/windows@2.4.0
 
 jobs:
-  build-android:
+  build-android-release:
     machine: true
     steps:
       - docker/pull:
@@ -18,7 +19,7 @@ jobs:
               --workdir=/usr/src/uVkCompute \
               --rm \
               antiagainst/uvkcompute-ci:latest \
-              tools/docker/build_android.sh
+              tools/ci/build_android.sh
   build-linux-debug:
     machine: true
     steps:
@@ -33,7 +34,7 @@ jobs:
               --workdir=/usr/src/uVkCompute \
               --rm \
               antiagainst/uvkcompute-ci:latest \
-              tools/docker/build_linux.sh Debug
+              tools/ci/build_linux.sh Debug
   build-linux-release:
     machine: true
     steps:
@@ -48,13 +49,32 @@ jobs:
               --workdir=/usr/src/uVkCompute \
               --rm \
               antiagainst/uvkcompute-ci:latest \
-              tools/docker/build_linux.sh Release
+              tools/ci/build_linux.sh Release
+  build-windows-release:
+    executor: windows/default
+    steps:
+      - run:
+          name: Install build toolchain
+          shell: cmd.exe
+          command: cinst cmake vulkan-sdk
+      - checkout
+      - run:
+          name: Update submodules
+          shell: cmd.exe
+          command: git submodule update --init
+      - run:
+          name: Release build on Windows
+          shell: powershell.exe
+          command: tools/ci/build_windows.ps1
 
 workflows:
+  build-android:
+    jobs:
+      - build-android-release
   build-linux:
     jobs:
       - build-linux-debug
       - build-linux-release
-  build-android:
+  build-windows:
     jobs:
-      - build-android
+      - build-windows-release
