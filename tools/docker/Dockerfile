@@ -24,7 +24,9 @@ RUN apt-get update && apt-get install -y \
   ninja-build \
   software-properties-common \
   unzip \
-  wget
+  wget \
+  # zlib is needed to compile SwiftShader.
+  zlib1g-dev
 
 ENV CC=/usr/bin/clang
 ENV CXX=/usr/bin/clang++
@@ -47,8 +49,9 @@ RUN wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc \
 
 ARG ANDROID_NDK_VERSION=r21d
 
-RUN wget "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION?}-linux-x86_64.zip"
-RUN unzip "android-ndk-${ANDROID_NDK_VERSION?}-linux-x86_64.zip" -d /android-ndk
+RUN wget "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION?}-linux-x86_64.zip" \
+  && unzip "android-ndk-${ANDROID_NDK_VERSION?}-linux-x86_64.zip" -d /android-ndk && \
+  rm -rf /usr/src
 
 ENV ANDROID_NDK="/android-ndk/android-ndk-${ANDROID_NDK_VERSION}"
 
@@ -71,26 +74,19 @@ RUN wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key a
 
 ARG SWIFTSHADER_COMMIT=b3c1e71eb1cb55ba78a3f884ab4e68ef1bd396da
 
-# zlib is needed for compiling SwiftShader.
-RUN apt-get update && apt-get install -y zlib1g-dev
-RUN git clone https://github.com/google/swiftshader
-RUN cd swiftshader && git checkout "${SWIFTSHADER_COMMIT?}" && cd ..
-# Only build SwiftShader Vulkan ICD.
-RUN cmake -S swiftshader/ -B build-swiftshader/ \
+RUN git clone https://github.com/google/swiftshader \
+  && cd swiftshader && git checkout "${SWIFTSHADER_COMMIT?}" && cd .. \
+  && cmake -S swiftshader/ -B build-swiftshader/ \
            -GNinja \
            -DSWIFTSHADER_BUILD_VULKAN=ON \
            -DSWIFTSHADER_BUILD_EGL=OFF \
            -DSWIFTSHADER_BUILD_GLESv2=OFF \
            -DSWIFTSHADER_BUILD_GLES_CM=OFF \
            -DSWIFTSHADER_BUILD_PVR=OFF \
-           -DSWIFTSHADER_BUILD_TESTS=OFF
-RUN cmake --build build-swiftshader/ \
+           -DSWIFTSHADER_BUILD_TESTS=OFF \
+  && cmake --build build-swiftshader/ \
            --config Release \
-           --target vk_swiftshader
-# Copy the ICD JSON and .so to a known place.
-RUN cp -rf build-swiftshader/Linux /swiftshader
-# Keep track of the commit we are using.
-RUN echo "${SWIFTSHADER_COMMIT?}" > /swiftshader/git-commit
-
-
-RUN rm -rf /usr/src/
+           --target vk_swiftshader \
+  && cp -rf build-swiftshader/Linux /swiftshader \
+  && echo "${SWIFTSHADER_COMMIT?}" > /swiftshader/git-commit \
+  && rm -rf /usr/src
