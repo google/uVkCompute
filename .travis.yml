@@ -1,0 +1,42 @@
+language: cpp
+
+os: linux
+dist: bionic
+
+services:
+  - docker
+
+branches:
+  only:
+    - main
+
+before_install:
+  - docker pull antiagainst/uvkcompute-ci:latest
+
+jobs:
+  fast_finish: true
+  include:
+    - name: "Debug build on Linux"
+      script:
+      - docker run
+              --volume=$PWD:/usr/src/uVkCompute
+              --workdir=/usr/src/uVkCompute
+              --rm
+              antiagainst/uvkcompute-ci:latest
+              tools/ci/build_linux.sh Debug
+    - name: "Release build on Linux"
+      script:
+      - docker run
+              --volume=$PWD:/usr/src/uVkCompute
+              --workdir=/usr/src/uVkCompute
+              --rm
+              antiagainst/uvkcompute-ci:latest
+              tools/ci/build_linux.sh Release
+    - name: "Release build on Android"
+      script:
+        - docker run
+              --volume=$PWD:/usr/src/uVkCompute
+              --workdir=/usr/src/uVkCompute
+              --rm
+              antiagainst/uvkcompute-ci:latest
+              tools/ci/build_android.sh
