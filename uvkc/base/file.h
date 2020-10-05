@@ -23,11 +23,11 @@
 namespace uvkc {
 
 // Reads the file at |path| and returns its contents as a string.
-absl::StatusOr<std::string> ReadFile(const std::string& path);
+absl::StatusOr<std::string> ReadFile(const std::string &path);
 
 // Writes the |content_size|-byte string starting at |content_data| into a file
 // at the given |path|.
-absl::Status WriteFile(const std::string& path, const char* content_data,
+absl::Status WriteFile(const std::string &path, const char *content_data,
                        size_t content_size);
 
 }  // namespace uvkc

@@ -63,4 +63,3 @@ class DescriptorPool {
 }  // namespace uvkc
 
 #endif  // UVKC_VULKAN_DESCRIPTOR_POOL_H_
-

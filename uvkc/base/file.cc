@@ -12,19 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "uvkc/base/file.h"
+
 #include <cstdio>
 #include <memory>
 
 #include "absl/status/status.h"
-#include "uvkc/base/file.h"
 
 namespace uvkc {
 
-absl::StatusOr<std::string> ReadFile(const std::string& path) {
-  std::unique_ptr<FILE, void (*)(FILE*)> file = {std::fopen(path.c_str(), "r"),
-                                                 +[](FILE* file) {
-                                                   if (file) std::fclose(file);
-                                                 }};
+absl::StatusOr<std::string> ReadFile(const std::string &path) {
+  std::unique_ptr<FILE, void (*)(FILE *)> file = {std::fopen(path.c_str(), "r"),
+                                                  +[](FILE *file) {
+                                                    if (file) std::fclose(file);
+                                                  }};
   if (file == nullptr) {
     return absl::InvalidArgumentError("cannot open file");
   }
@@ -40,23 +41,23 @@ absl::StatusOr<std::string> ReadFile(const std::string& path) {
   }
   std::string contents;
   contents.resize(file_size);
-  if (std::fread(const_cast<char*>(contents.data()), file_size, 1,
+  if (std::fread(const_cast<char *>(contents.data()), file_size, 1,
                  file.get()) != 1) {
     return absl::InvalidArgumentError("cannot read file content");
   }
   return contents;
 }
 
-absl::Status WriteFile(const std::string& path, const char* content_data,
+absl::Status WriteFile(const std::string &path, const char *content_data,
                        size_t content_size) {
-  std::unique_ptr<FILE, void (*)(FILE*)> file = {std::fopen(path.c_str(), "wb"),
-                                                 +[](FILE* file) {
-                                                   if (file) std::fclose(file);
-                                                 }};
+  std::unique_ptr<FILE, void (*)(FILE *)> file = {
+      std::fopen(path.c_str(), "wb"), +[](FILE *file) {
+        if (file) std::fclose(file);
+      }};
   if (file == nullptr) {
     return absl::InvalidArgumentError("cannot open file");
   }
-  if (std::fwrite(const_cast<char*>(content_data), content_size, 1,
+  if (std::fwrite(const_cast<char *>(content_data), content_size, 1,
                   file.get()) != 1) {
     return absl::InvalidArgumentError("cannot write file content");
   }

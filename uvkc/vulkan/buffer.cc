@@ -21,7 +21,7 @@ namespace uvkc {
 namespace vulkan {
 
 Buffer::Buffer(VkDevice device, VkDeviceMemory memory, VkBuffer buffer,
-               const DynamicSymbols& symbols)
+               const DynamicSymbols &symbols)
     : buffer_(buffer), device_(device), memory_(memory), symbols_(symbols) {}
 
 Buffer::~Buffer() {
@@ -31,8 +31,8 @@ Buffer::~Buffer() {
 
 VkBuffer Buffer::buffer() const { return buffer_; }
 
-absl::StatusOr<void*> Buffer::MapMemory(size_t offset, size_t size) {
-  void* data = nullptr;
+absl::StatusOr<void *> Buffer::MapMemory(size_t offset, size_t size) {
+  void *data = nullptr;
   VK_RETURN_IF_ERROR(
       symbols_.vkMapMemory(device_, memory_, offset, size, /*flags=*/0, &data));
   return data;

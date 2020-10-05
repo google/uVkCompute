@@ -1,1 +1,5 @@
 BasedOnStyle: Google
+
+# Force pointers to the variables for C++.
+DerivePointerAlignment: false
+PointerAlignment: Right
