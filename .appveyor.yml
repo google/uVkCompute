@@ -1,0 +1,28 @@
+version: "{build}"
+
+image:
+  - Visual Studio 2019
+
+platform: x64
+
+configuration:
+  - Release
+
+max_jobs: 1
+
+clone_folder: C:\projects\uVkCompute
+
+branches:
+  only:
+    - main
+
+install:
+  - cmd: cinst vulkan-sdk
+  - cmd: refreshenv
+
+before_build:
+  - cmd: git submodule update --init
+
+build_script:
+  - cmd: cmake -G "Visual Studio 16 2019" -A %PLATFORM% -S . -B build-windows
+  - cmd: cmake --build build-windows --config %CONFIGURATION% -j 4
