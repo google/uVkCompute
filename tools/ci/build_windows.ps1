@@ -46,4 +46,4 @@ else {
 
 Write-Host -ForegroundColor Yellow "Using cmake executable: $cmake_path"
 Invoke-CMake $cmake_path "-G", '"Visual Studio 16 2019"', "-A", "x64", "-S", "./", "-B", "build-windows"
-Invoke-CMake $cmake_path "--build", "build-windows"
+Invoke-CMake $cmake_path "--build", "build-windows", "-j", "4"
