@@ -5,8 +5,17 @@ image:
 
 platform: x64
 
+cache:
+  # Cache the Vulkan SDK to avoid freqently downloading from the LunarG server.
+  # Invalidate the cache if .appveyor.yml is changed.
+  - C:\VulkanSDK -> .appveyor.yml
+
 configuration:
   - Release
+
+environment:
+  VULKAN_SDK_DIR: C:\VulkanSDK
+  VULKAN_SDK_VERSION: 1.2.141.0
 
 max_jobs: 1
 
@@ -17,12 +26,24 @@ branches:
     - main
 
 install:
-  - cmd: cinst vulkan-sdk
-  - cmd: refreshenv
+  # Download the Vulkan SDK if it is not cached. Otherwise, just set up the
+  # proper environment variable to discover it.
+  - ps: >-
+      if (-not (Test-Path -Path "$ENV:VULKAN_SDK_DIR" -PathType Container)) {
+        cinst vulkan-sdk --version "$ENV:VULKAN_SDK_VERSION"
+      }
+  - ps: >-
+      [Environment]::SetEnvironmentVariable(
+        "VULKAN_SDK",
+        "$ENV:VULKAN_SDK_DIR\$ENV:VULKAN_SDK_VERSION",
+        "User"
+      )
 
 before_build:
   - cmd: git submodule update --init
 
 build_script:
+  - cmd: refreshenv
+  - cmd: echo %VULKAN_SDK%
   - cmd: cmake -G "Visual Studio 16 2019" -A %PLATFORM% -S . -B build-windows
   - cmd: cmake --build build-windows --config %CONFIGURATION% -j 4
