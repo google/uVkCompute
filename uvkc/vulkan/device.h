@@ -87,6 +87,10 @@ class Device {
   // Allocates a primary command buffer.
   absl::StatusOr<std::unique_ptr<CommandBuffer>> AllocateCommandBuffer();
 
+  // Resets the command pool and recycles all the sources from all the command
+  // buffers allocated from this device thus far.
+  absl::Status ResetCommandPool();
+
   // Submits the given |command_buffer| to the queue.
   absl::Status QueueSubmitAndWait(const CommandBuffer &command_buffer);
 

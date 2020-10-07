@@ -273,7 +273,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkRegisterDeviceEventEXT)                           \
   DEV_PFN(EXCLUDED, vkRegisterDisplayEventEXT)                          \
   DEV_PFN(EXCLUDED, vkRegisterObjectsNVX)                               \
-  DEV_PFN(EXCLUDED, vkResetCommandPool)                                 \
+  DEV_PFN(REQUIRED, vkResetCommandPool)                                 \
   DEV_PFN(REQUIRED, vkResetDescriptorPool)                              \
   DEV_PFN(REQUIRED, vkResetEvent)                                       \
   DEV_PFN(REQUIRED, vkResetFences)                                      \

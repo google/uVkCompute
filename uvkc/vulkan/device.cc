@@ -160,6 +160,11 @@ absl::StatusOr<std::unique_ptr<CommandBuffer>> Device::AllocateCommandBuffer() {
   return std::make_unique<CommandBuffer>(device_, command_buffer, symbols_);
 }
 
+absl::Status Device::ResetCommandPool() {
+  return VkResultToStatus(symbols_.vkResetCommandPool(
+      device_, command_pool_, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
+}
+
 absl::Status Device::QueueSubmitAndWait(const CommandBuffer &command_buffer) {
   VkFenceCreateInfo fence_create_info = {};
   fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;

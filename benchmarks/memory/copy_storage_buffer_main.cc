@@ -168,6 +168,10 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
     state.SetIterationTime(elapsed_seconds.count());
   }
   state.SetBytesProcessed(buffer_size);
+
+  // Reset the command pool to release all command buffers in the benchmarking
+  // loop to avoid draining GPU resources.
+  BM_CHECK_OK(device->ResetCommandPool());
 }
 
 namespace uvkc {
