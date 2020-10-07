@@ -28,12 +28,28 @@
 
 static const char kBenchmarkName[] = "copy_storage_buffer_scalar";
 
-static uint32_t kShaderCode[] = {
+static uint32_t kScalarShaderCode[] = {
 #include "copy_storage_buffer_scalar_shader_spirv_instance.inc"
+};
+
+static uint32_t kVectorShaderCode[] = {
+#include "copy_storage_buffer_vector_shader_spirv_instance.inc"
+};
+
+struct ShaderCode {
+  const uint32_t *code;
+  size_t size;
+  const char *name;
+};
+
+static ShaderCode kShaderCodeCases[] = {
+    {kScalarShaderCode, sizeof(kScalarShaderCode) / sizeof(uint32_t), "scalar"},
+    {kVectorShaderCode, sizeof(kVectorShaderCode) / sizeof(uint32_t), "vector"},
 };
 
 static void CopyStorageBufferScalar(::benchmark::State &state,
                                     ::uvkc::vulkan::Device *device,
+                                    const uint32_t *code, size_t size,
                                     int num_elements) {
   size_t buffer_size = num_elements * sizeof(float);
 
@@ -41,10 +57,8 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
 
-  BM_CHECK_OK_AND_ASSIGN(
-      auto shader_module,
-      device->CreateShaderModule(kShaderCode,
-                                 sizeof(kShaderCode) / sizeof(uint32_t)));
+  BM_CHECK_OK_AND_ASSIGN(auto shader_module,
+                         device->CreateShaderModule(code, size));
 
   ::uvkc::vulkan::Pipeline::SpecConstant spec_constant = {};
   spec_constant.id = 0;
@@ -164,15 +178,19 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
 }
 
 void RegisterVulkanBenchmarks(VulkanContext *context) {
-  for (int di = 0; di < context->devices.size(); ++di) {
+  for (int di = 0; di < context->devices.size(); ++di) {  // GPU
     const char *gpu_name = context->physical_devices[di].properties.deviceName;
-    for (int shift = 10; shift < 20; ++shift) {
-      int num_elements = 1 << shift;
-      std::string test_name = absl::StrCat(gpu_name, "/", num_elements);
-      ::benchmark::RegisterBenchmark(test_name.c_str(), CopyStorageBufferScalar,
-                                     context->devices[di].get(), num_elements)
-          ->UseManualTime()
-          ->Unit(::benchmark::kMicrosecond);
+    for (const auto &shader : kShaderCodeCases) {  // Scalar/vector shader
+      for (int shift = 20; shift < 26; ++shift) {  // Number of bytes: 1M -> 32M
+        int num_bytes = 1 << shift;
+        std::string test_name =
+            absl::StrCat(gpu_name, "/", shader.name, "/", num_bytes);
+        ::benchmark::RegisterBenchmark(
+            test_name.c_str(), CopyStorageBufferScalar,
+            context->devices[di].get(), shader.code, shader.size, num_bytes / 4)
+            ->UseManualTime()
+            ->Unit(::benchmark::kMicrosecond);
+      }
     }
   }
 }

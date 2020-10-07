@@ -19,13 +19,21 @@ uvkc_glsl_shader_instance(
     "copy_storage_buffer_scalar.glsl"
 )
 
+uvkc_glsl_shader_instance(
+  NAME
+    copy_storage_buffer_vector_shader
+  SRC
+    "copy_storage_buffer_vector.glsl"
+)
+
 uvkc_cc_binary(
   NAME
-    copy_storage_buffer_scalar
+    copy_storage_buffer
   SRCS
-    "copy_storage_buffer_scalar_main.cc"
+    "copy_storage_buffer_main.cc"
   DEPS
     ::copy_storage_buffer_scalar_shader
+    ::copy_storage_buffer_vector_shader
     benchmark::benchmark
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
