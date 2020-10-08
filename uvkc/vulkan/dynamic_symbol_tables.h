@@ -140,7 +140,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCmdWriteBufferMarkerAMD)                          \
   DEV_PFN(REQUIRED, vkCmdWriteTimestamp)                                \
   DEV_PFN(REQUIRED, vkEndCommandBuffer)                                 \
-  DEV_PFN(EXCLUDED, vkResetCommandBuffer)                               \
+  DEV_PFN(REQUIRED, vkResetCommandBuffer)                               \
   DEV_PFN(EXCLUDED, vkAcquireNextImage2KHR)                             \
   DEV_PFN(EXCLUDED, vkAcquireNextImageKHR)                              \
   DEV_PFN(REQUIRED, vkAllocateCommandBuffers)                           \

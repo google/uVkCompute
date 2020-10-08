@@ -20,6 +20,7 @@
 #include <memory>
 #include <unordered_map>
 
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "uvkc/vulkan/buffer.h"
 #include "uvkc/vulkan/dynamic_symbols.h"
@@ -48,6 +49,9 @@ class CommandBuffer {
 
   // Ends command buffer recording.
   absl::Status End();
+
+  // Resets this command buffer to its initial state.
+  absl::Status Reset();
 
   // Records a command to copy the |src_buffer| to |dst_buffer|.
   void CopyBuffer(const Buffer &src_buffer, size_t src_offset,

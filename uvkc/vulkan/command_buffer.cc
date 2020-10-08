@@ -44,6 +44,15 @@ absl::Status CommandBuffer::End() {
   return VkResultToStatus(symbols_.vkEndCommandBuffer(command_buffer_));
 }
 
+absl::Status CommandBuffer::Reset() {
+  // We don't release the resources when resetting the command buffer. The
+  // assumption behind this is that the command buffer will be used in some sort
+  // of benchmarking loop so each iteration/recording requires the same
+  // resource.
+  return VkResultToStatus(
+      symbols_.vkResetCommandBuffer(command_buffer_, /*flags=*/0));
+}
+
 void CommandBuffer::CopyBuffer(const Buffer &src_buffer, size_t src_offset,
                                const Buffer &dst_buffer, size_t dst_offset,
                                size_t length) {

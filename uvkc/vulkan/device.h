@@ -37,7 +37,8 @@ namespace vulkan {
 // This is the main interaction points with the Vulkan system. All resource
 // creation and workload dispatching are expected to happen with this class.
 //
-// Command buffers allocated from this device are transient.
+// Command buffers allocated from this device can be returned back to the pool
+// individually.
 class Device {
  public:
   // Wraps a logical |device| from |physical_device| of |queue_family_index|.

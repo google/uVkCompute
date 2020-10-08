@@ -150,9 +150,9 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
   //===-------------------------------------------------------------------===/
   // Benchmarking
   //===-------------------------------------------------------------------===/
-  for (auto _ : state) {
-    BM_CHECK_OK_AND_ASSIGN(auto cmdbuf, device->AllocateCommandBuffer());
 
+  BM_CHECK_OK_AND_ASSIGN(auto cmdbuf, device->AllocateCommandBuffer());
+  for (auto _ : state) {
     BM_CHECK_OK(cmdbuf->Begin());
     cmdbuf->BindPipelineAndDescriptorSets(
         *pipeline,
@@ -166,6 +166,7 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
         std::chrono::duration_cast<std::chrono::duration<double>>(end_time -
                                                                   start_time);
     state.SetIterationTime(elapsed_seconds.count());
+    BM_CHECK_OK(cmdbuf->Reset());
   }
   state.SetBytesProcessed(buffer_size);
 
