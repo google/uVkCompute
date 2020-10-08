@@ -24,6 +24,10 @@
 #include "uvkc/base/status.h"
 #include "uvkc/base/target_platform.h"
 
+#if defined(UVKC_PLATFORM_ANDROID)
+#include "uvkc/android/vulkan_icd_symbol.h"
+#endif
+
 namespace uvkc {
 namespace vulkan {
 
@@ -109,26 +113,20 @@ absl::Status ResolveFunctions(
   // vendor Vulkan implementation under /vendor/lib[64]/hw/vulkan.*.so as
   // libvulkan.so under /data/local/tmp and use LD_LIBRARY_PATH=/data/local/tmp
   // when invoking the test binaries. This effectively bypasses the Android
-  // Vulkan loader. This is fine for ARM Mali GPUs, whose driver exposes
-  // the symbol `vkGetInstanceProcAddr`. But for Qualcomm Adreno GPUs,
-  // the Vulkan implementation library does not directly expose the symbol.
-  // Instead it's hidden as `qglinternal::vkGetInstanceProcAddr`. So try to
-  // see whether we can get this symbol. This is a reasonable workaround
-  // as otherwise it means we need to wrap. every. single. binary. test.
-  // as. a. full-blown. Android. app.
+  // Vulkan loader. It means we need to discover the vkGetInstanceProcAddr
+  // from the Vulkan ICD by mimicking the Android loader.
   if (!syms->vkGetInstanceProcAddr) {
-    syms->vkGetInstanceProcAddr =
-        reinterpret_cast<PFN_vkGetInstanceProcAddr>(get_proc_addr(
-            // C++ mangled name for "qglinternal::vkGetInstanceProcAddr"
-            "_ZN11qglinternal21vkGetInstanceProcAddrEP12VkInstance_TPKc"));
+    UVKC_ASSIGN_OR_RETURN(
+        syms->vkGetInstanceProcAddr,
+        android::GetVulkanICDGetInstanceProceAddr(syms->dynamic_library()));
   }
-#endif  // UVKC_PLATFORM_ANDROID
-
+#else
   if (!syms->vkGetInstanceProcAddr) {
     return absl::UnavailableError(
         "Required vkGetInstanceProcAddr function not found in provided Vulkan "
         "library (did you pick the wrong file?)");
   }
+#endif  // UVKC_PLATFORM_ANDROID
 
   // Resolve the mandatory functions that we need to create instances.
   // If the provided |get_proc_addr| cannot resolve these then it's not a loader
@@ -154,6 +152,10 @@ absl::Status ResolveFunctions(
 DynamicSymbols::DynamicSymbols() = default;
 
 DynamicSymbols::~DynamicSymbols() = default;
+
+const DynamicLibrary &DynamicSymbols::dynamic_library() const {
+  return *loader_library_;
+}
 
 // static
 absl::StatusOr<std::unique_ptr<DynamicSymbols>>

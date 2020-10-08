@@ -56,6 +56,7 @@ uvkc_cc_library(
     absl::span
     absl::statusor
     absl::strings
+    uvkc::android::vulkan_icd_symbol
     uvkc::base::dynamic_library
     Vulkan::Vulkan
 )

@@ -65,6 +65,8 @@ struct DynamicSymbols {
   DynamicSymbols();
   ~DynamicSymbols();
 
+  const DynamicLibrary &dynamic_library() const;
+
   // Loads all required and optional Vulkan functions from the Vulkan loader.
   // This will look for a Vulkan loader on the system (like libvulkan.so) and
   // dlsym the functions from that.

@@ -58,6 +58,7 @@ add_subdirectory(third_party)
 #-------------------------------------------------------------------------------
 
 add_subdirectory(uvkc/base)
+add_subdirectory(uvkc/android)
 add_subdirectory(uvkc/benchmark)
 add_subdirectory(uvkc/vulkan)
 
