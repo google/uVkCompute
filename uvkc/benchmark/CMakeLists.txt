@@ -65,3 +65,21 @@ uvkc_cc_library(
     uvkc::vulkan::driver
 )
 
+uvkc_glsl_shader_instance(
+  NAME
+    void_shader
+  SRC
+    "void_shader.glsl"
+)
+
+uvkc_cc_library(
+  NAME
+    dispatch_void_shader
+  SRCS
+    "dispatch_void_shader.cc"
+  DEPS
+    ::void_shader
+    benchmark::benchmark
+    uvkc::vulkan::device
+    uvkc::vulkan::driver
+)

@@ -36,6 +36,7 @@ struct VulkanContext {
   std::unique_ptr<vulkan::Driver> driver;
   std::vector<vulkan::Driver::PhysicalDeviceInfo> physical_devices;
   std::vector<std::unique_ptr<vulkan::Device>> devices;
+  double void_dispatch_latency_seconds;
 
   VulkanContext(
       std::unique_ptr<vulkan::DynamicSymbols> symbols,

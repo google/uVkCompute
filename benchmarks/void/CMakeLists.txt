@@ -12,6 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(matmul)
-add_subdirectory(memory)
-add_subdirectory(void)
+uvkc_cc_binary(
+  NAME
+    dispatch_void_shader
+  SRCS
+    "dispatch_void_shader_main.cc"
+  DEPS
+    benchmark::benchmark
+    uvkc::benchmark::dispatch_void_shader
+    uvkc::benchmark::main
+)
+
