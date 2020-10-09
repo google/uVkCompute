@@ -39,7 +39,7 @@ Vulkan application.
 
 This repository requires a common C++ project development environment:
 
-* [CMake][cmake] with version >= 3.7
+* [CMake][cmake] with version >= 3.13
 * (Optional) the [Ninja][ninja] build system
 * A C/C++ compiler that supports C11/C++14
 * Python3
@@ -51,20 +51,6 @@ variable.
 
 ## Building and Running
 
-### Linux/macOS
-
-```shell
-git clone https://github.com/google/uVkCompute.git
-cd uVkCompute
-git submodule update --init
-
-cmake -G Ninja -B build/
-cmake --build build/
-```
-
-Afterwards you can run the benchmark binaries generated into the `build/`
-directory on the host machine.
-
 ### Android
 
 ```shell
@@ -72,10 +58,10 @@ git clone https://github.com/google/uVkCompute.git
 cd uVkCompute
 git submodule update --init
 
-cmake -G Ninja -B build-android  \
+cmake -G Ninja -S ./ -B build-android/  \
   -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK?}/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI="arm64-v8a" -DANDROID_PLATFORM=android-29
-cmake --build build/
+cmake --build build-android/
 ```
 
 Where `ANDROID_NDK` is the path to the [Android NDK
@@ -99,6 +85,33 @@ Android 11. A workaround is to copy the Vulkan ICD (normally as
 `/vendor/lib[64]/hw/vulkan.*.so`) to `/data/local/tmp` and run the benchmark
 binary with `LD_LIBRARY_PATH=/data/local/tmp`.
 
+### Linux/macOS
+
+```shell
+git clone https://github.com/google/uVkCompute.git
+cd uVkCompute
+git submodule update --init
+
+cmake -G Ninja -S ./ -B build/
+cmake --build build/
+```
+
+Afterwards you can run the benchmark binaries generated into the `build/`
+directory on the host machine.
+
+### Windows
+
+```shell
+git clone https://github.com/google/uVkCompute.git
+cd uVkCompute
+git submodule update --init
+
+cmake -G "Visual Studio 16 2019" -A x64 -S ./ -B build/
+cmake --build build/
+```
+
+Afterwards you can run the benchmark binaries generated into the `build/`
+directory on the host machine.
 
 [android-abi]: https://developer.android.com/ndk/guides/cmake#android_abi
 [android-ndk-install]: https://developer.android.com/ndk/downloads
