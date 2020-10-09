@@ -48,10 +48,10 @@ static ShaderCode kShaderCodeCases[] = {
     {"vector", kVectorShaderCode, sizeof(kVectorShaderCode), 4 * 4},
 };
 
-static void CopyStorageBufferScalar(::benchmark::State &state,
-                                    ::uvkc::vulkan::Device *device,
-                                    const uint32_t *code, size_t code_num_words,
-                                    size_t buffer_num_bytes, int num_elements) {
+static void CopyStorageBuffer(::benchmark::State &state,
+                              ::uvkc::vulkan::Device *device,
+                              const uint32_t *code, size_t code_num_words,
+                              size_t buffer_num_bytes, int num_elements) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
@@ -192,9 +192,8 @@ void RegisterVulkanBenchmarks(VulkanContext *context) {
         std::string test_name =
             absl::StrCat(gpu_name, "/", shader.name, "/", num_bytes);
         ::benchmark::RegisterBenchmark(
-            test_name.c_str(), CopyStorageBufferScalar,
-            context->devices[di].get(), shader.code,
-            shader.code_num_bytes / sizeof(uint32_t), num_bytes,
+            test_name.c_str(), CopyStorageBuffer, context->devices[di].get(),
+            shader.code, shader.code_num_bytes / sizeof(uint32_t), num_bytes,
             num_bytes / shader.element_num_bytes)
             ->UseManualTime()
             ->Unit(::benchmark::kMicrosecond);
