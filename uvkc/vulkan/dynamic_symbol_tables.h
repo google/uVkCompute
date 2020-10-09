@@ -41,8 +41,8 @@ namespace vulkan {
 // before Vulkan instance creation.
 #define UVKC_VULKAN_DYNAMIC_SYMBOL_INSTANCELESS_TABLE(INS_PFN) \
   INS_PFN(REQUIRED, vkCreateInstance)                          \
-  INS_PFN(REQUIRED, vkEnumerateInstanceExtensionProperties)    \
-  INS_PFN(REQUIRED, vkEnumerateInstanceLayerProperties)        \
+  INS_PFN(EXCLUDED, vkEnumerateInstanceExtensionProperties)    \
+  INS_PFN(EXCLUDED, vkEnumerateInstanceLayerProperties)        \
   INS_PFN(OPTIONAL, vkEnumerateInstanceVersion)
 
 // Defines the list of instance/device symbols that are queried from
@@ -80,7 +80,7 @@ namespace vulkan {
   DEV_PFN(REQUIRED, vkCmdDispatch)                                      \
   DEV_PFN(EXCLUDED, vkCmdDispatchBase)                                  \
   DEV_PFN(EXCLUDED, vkCmdDispatchBaseKHR)                               \
-  DEV_PFN(REQUIRED, vkCmdDispatchIndirect)                              \
+  DEV_PFN(EXCLUDED, vkCmdDispatchIndirect)                              \
   DEV_PFN(EXCLUDED, vkCmdDraw)                                          \
   DEV_PFN(EXCLUDED, vkCmdDrawIndexed)                                   \
   DEV_PFN(EXCLUDED, vkCmdDrawIndexedIndirect)                           \
@@ -100,18 +100,18 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCmdEndRenderPass)                                 \
   DEV_PFN(EXCLUDED, vkCmdEndRenderPass2KHR)                             \
   DEV_PFN(EXCLUDED, vkCmdEndTransformFeedbackEXT)                       \
-  DEV_PFN(REQUIRED, vkCmdExecuteCommands)                               \
-  DEV_PFN(REQUIRED, vkCmdFillBuffer)                                    \
+  DEV_PFN(EXCLUDED, vkCmdExecuteCommands)                               \
+  DEV_PFN(EXCLUDED, vkCmdFillBuffer)                                    \
   DEV_PFN(EXCLUDED, vkCmdInsertDebugUtilsLabelEXT)                      \
   DEV_PFN(EXCLUDED, vkCmdNextSubpass)                                   \
   DEV_PFN(EXCLUDED, vkCmdNextSubpass2KHR)                               \
-  DEV_PFN(REQUIRED, vkCmdPipelineBarrier)                               \
+  DEV_PFN(EXCLUDED, vkCmdPipelineBarrier)                               \
   DEV_PFN(EXCLUDED, vkCmdProcessCommandsNVX)                            \
-  DEV_PFN(REQUIRED, vkCmdPushConstants)                                 \
+  DEV_PFN(EXCLUDED, vkCmdPushConstants)                                 \
   DEV_PFN(EXCLUDED, vkCmdPushDescriptorSetKHR)                          \
   DEV_PFN(EXCLUDED, vkCmdPushDescriptorSetWithTemplateKHR)              \
   DEV_PFN(EXCLUDED, vkCmdReserveSpaceForCommandsNVX)                    \
-  DEV_PFN(REQUIRED, vkCmdResetEvent)                                    \
+  DEV_PFN(EXCLUDED, vkCmdResetEvent)                                    \
   DEV_PFN(EXCLUDED, vkCmdResetQueryPool)                                \
   DEV_PFN(EXCLUDED, vkCmdResolveImage)                                  \
   DEV_PFN(EXCLUDED, vkCmdSetBlendConstants)                             \
@@ -122,7 +122,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCmdSetDeviceMask)                                 \
   DEV_PFN(EXCLUDED, vkCmdSetDeviceMaskKHR)                              \
   DEV_PFN(EXCLUDED, vkCmdSetDiscardRectangleEXT)                        \
-  DEV_PFN(REQUIRED, vkCmdSetEvent)                                      \
+  DEV_PFN(EXCLUDED, vkCmdSetEvent)                                      \
   DEV_PFN(EXCLUDED, vkCmdSetExclusiveScissorNV)                         \
   DEV_PFN(EXCLUDED, vkCmdSetLineWidth)                                  \
   DEV_PFN(EXCLUDED, vkCmdSetSampleLocationsEXT)                         \
@@ -134,11 +134,11 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCmdSetViewportShadingRatePaletteNV)               \
   DEV_PFN(EXCLUDED, vkCmdSetViewportWScalingNV)                         \
   DEV_PFN(EXCLUDED, vkCmdTraceRaysNV)                                   \
-  DEV_PFN(REQUIRED, vkCmdUpdateBuffer)                                  \
-  DEV_PFN(REQUIRED, vkCmdWaitEvents)                                    \
+  DEV_PFN(EXCLUDED, vkCmdUpdateBuffer)                                  \
+  DEV_PFN(EXCLUDED, vkCmdWaitEvents)                                    \
   DEV_PFN(EXCLUDED, vkCmdWriteAccelerationStructuresPropertiesNV)       \
   DEV_PFN(EXCLUDED, vkCmdWriteBufferMarkerAMD)                          \
-  DEV_PFN(REQUIRED, vkCmdWriteTimestamp)                                \
+  DEV_PFN(EXCLUDED, vkCmdWriteTimestamp)                                \
   DEV_PFN(REQUIRED, vkEndCommandBuffer)                                 \
   DEV_PFN(REQUIRED, vkResetCommandBuffer)                               \
   DEV_PFN(EXCLUDED, vkAcquireNextImage2KHR)                             \
@@ -150,28 +150,28 @@ namespace vulkan {
   DEV_PFN(REQUIRED, vkBindBufferMemory)                                 \
   DEV_PFN(EXCLUDED, vkBindBufferMemory2)                                \
   DEV_PFN(EXCLUDED, vkBindBufferMemory2KHR)                             \
-  DEV_PFN(REQUIRED, vkBindImageMemory)                                  \
+  DEV_PFN(EXCLUDED, vkBindImageMemory)                                  \
   DEV_PFN(EXCLUDED, vkBindImageMemory2)                                 \
   DEV_PFN(EXCLUDED, vkBindImageMemory2KHR)                              \
   DEV_PFN(EXCLUDED, vkCompileDeferredNV)                                \
   DEV_PFN(EXCLUDED, vkCreateAccelerationStructureNV)                    \
   DEV_PFN(REQUIRED, vkCreateBuffer)                                     \
-  DEV_PFN(REQUIRED, vkCreateBufferView)                                 \
+  DEV_PFN(EXCLUDED, vkCreateBufferView)                                 \
   DEV_PFN(REQUIRED, vkCreateCommandPool)                                \
   DEV_PFN(REQUIRED, vkCreateComputePipelines)                           \
   DEV_PFN(REQUIRED, vkCreateDescriptorPool)                             \
   DEV_PFN(REQUIRED, vkCreateDescriptorSetLayout)                        \
   DEV_PFN(EXCLUDED, vkCreateDescriptorUpdateTemplate)                   \
   DEV_PFN(EXCLUDED, vkCreateDescriptorUpdateTemplateKHR)                \
-  DEV_PFN(REQUIRED, vkCreateEvent)                                      \
+  DEV_PFN(EXCLUDED, vkCreateEvent)                                      \
   DEV_PFN(REQUIRED, vkCreateFence)                                      \
   DEV_PFN(EXCLUDED, vkCreateFramebuffer)                                \
   DEV_PFN(EXCLUDED, vkCreateGraphicsPipelines)                          \
-  DEV_PFN(REQUIRED, vkCreateImage)                                      \
+  DEV_PFN(EXCLUDED, vkCreateImage)                                      \
   DEV_PFN(EXCLUDED, vkCreateImageView)                                  \
   DEV_PFN(EXCLUDED, vkCreateIndirectCommandsLayoutNVX)                  \
   DEV_PFN(EXCLUDED, vkCreateObjectTableNVX)                             \
-  DEV_PFN(REQUIRED, vkCreatePipelineCache)                              \
+  DEV_PFN(EXCLUDED, vkCreatePipelineCache)                              \
   DEV_PFN(REQUIRED, vkCreatePipelineLayout)                             \
   DEV_PFN(EXCLUDED, vkCreateQueryPool)                                  \
   DEV_PFN(EXCLUDED, vkCreateRayTracingPipelinesNV)                      \
@@ -180,7 +180,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCreateSampler)                                    \
   DEV_PFN(EXCLUDED, vkCreateSamplerYcbcrConversion)                     \
   DEV_PFN(EXCLUDED, vkCreateSamplerYcbcrConversionKHR)                  \
-  DEV_PFN(REQUIRED, vkCreateSemaphore)                                  \
+  DEV_PFN(EXCLUDED, vkCreateSemaphore)                                  \
   DEV_PFN(REQUIRED, vkCreateShaderModule)                               \
   DEV_PFN(EXCLUDED, vkCreateSharedSwapchainsKHR)                        \
   DEV_PFN(EXCLUDED, vkCreateSwapchainKHR)                               \
@@ -189,29 +189,29 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkDebugMarkerSetObjectTagEXT)                       \
   DEV_PFN(EXCLUDED, vkDestroyAccelerationStructureNV)                   \
   DEV_PFN(REQUIRED, vkDestroyBuffer)                                    \
-  DEV_PFN(REQUIRED, vkDestroyBufferView)                                \
+  DEV_PFN(EXCLUDED, vkDestroyBufferView)                                \
   DEV_PFN(REQUIRED, vkDestroyCommandPool)                               \
   DEV_PFN(REQUIRED, vkDestroyDescriptorPool)                            \
   DEV_PFN(REQUIRED, vkDestroyDescriptorSetLayout)                       \
   DEV_PFN(EXCLUDED, vkDestroyDescriptorUpdateTemplate)                  \
   DEV_PFN(EXCLUDED, vkDestroyDescriptorUpdateTemplateKHR)               \
   DEV_PFN(REQUIRED, vkDestroyDevice)                                    \
-  DEV_PFN(REQUIRED, vkDestroyEvent)                                     \
+  DEV_PFN(EXCLUDED, vkDestroyEvent)                                     \
   DEV_PFN(REQUIRED, vkDestroyFence)                                     \
   DEV_PFN(EXCLUDED, vkDestroyFramebuffer)                               \
-  DEV_PFN(REQUIRED, vkDestroyImage)                                     \
+  DEV_PFN(EXCLUDED, vkDestroyImage)                                     \
   DEV_PFN(EXCLUDED, vkDestroyImageView)                                 \
   DEV_PFN(EXCLUDED, vkDestroyIndirectCommandsLayoutNVX)                 \
   DEV_PFN(EXCLUDED, vkDestroyObjectTableNVX)                            \
   DEV_PFN(REQUIRED, vkDestroyPipeline)                                  \
-  DEV_PFN(REQUIRED, vkDestroyPipelineCache)                             \
+  DEV_PFN(EXCLUDED, vkDestroyPipelineCache)                             \
   DEV_PFN(REQUIRED, vkDestroyPipelineLayout)                            \
   DEV_PFN(EXCLUDED, vkDestroyQueryPool)                                 \
   DEV_PFN(EXCLUDED, vkDestroyRenderPass)                                \
   DEV_PFN(EXCLUDED, vkDestroySampler)                                   \
   DEV_PFN(EXCLUDED, vkDestroySamplerYcbcrConversion)                    \
   DEV_PFN(EXCLUDED, vkDestroySamplerYcbcrConversionKHR)                 \
-  DEV_PFN(REQUIRED, vkDestroySemaphore)                                 \
+  DEV_PFN(EXCLUDED, vkDestroySemaphore)                                 \
   DEV_PFN(REQUIRED, vkDestroyShaderModule)                              \
   DEV_PFN(EXCLUDED, vkDestroySwapchainKHR)                              \
   DEV_PFN(EXCLUDED, vkDestroyValidationCacheEXT)                        \
@@ -237,11 +237,11 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkGetDeviceMemoryCommitment)                        \
   DEV_PFN(REQUIRED, vkGetDeviceQueue)                                   \
   DEV_PFN(EXCLUDED, vkGetDeviceQueue2)                                  \
-  DEV_PFN(REQUIRED, vkGetEventStatus)                                   \
+  DEV_PFN(EXCLUDED, vkGetEventStatus)                                   \
   DEV_PFN(EXCLUDED, vkGetFenceFdKHR)                                    \
-  DEV_PFN(REQUIRED, vkGetFenceStatus)                                   \
+  DEV_PFN(EXCLUDED, vkGetFenceStatus)                                   \
   DEV_PFN(EXCLUDED, vkGetImageDrmFormatModifierPropertiesEXT)           \
-  DEV_PFN(REQUIRED, vkGetImageMemoryRequirements)                       \
+  DEV_PFN(EXCLUDED, vkGetImageMemoryRequirements)                       \
   DEV_PFN(EXCLUDED, vkGetImageMemoryRequirements2)                      \
   DEV_PFN(EXCLUDED, vkGetImageMemoryRequirements2KHR)                   \
   DEV_PFN(EXCLUDED, vkGetImageSparseMemoryRequirements)                 \
@@ -253,7 +253,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkGetMemoryFdPropertiesKHR)                         \
   DEV_PFN(EXCLUDED, vkGetMemoryHostPointerPropertiesEXT)                \
   DEV_PFN(EXCLUDED, vkGetPastPresentationTimingGOOGLE)                  \
-  DEV_PFN(REQUIRED, vkGetPipelineCacheData)                             \
+  DEV_PFN(EXCLUDED, vkGetPipelineCacheData)                             \
   DEV_PFN(EXCLUDED, vkGetQueryPoolResults)                              \
   DEV_PFN(EXCLUDED, vkGetRayTracingShaderGroupHandlesNV)                \
   DEV_PFN(EXCLUDED, vkGetRefreshCycleDurationGOOGLE)                    \
@@ -268,19 +268,19 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkImportSemaphoreFdKHR)                             \
   DEV_PFN(REQUIRED, vkInvalidateMappedMemoryRanges)                     \
   DEV_PFN(REQUIRED, vkMapMemory)                                        \
-  DEV_PFN(REQUIRED, vkMergePipelineCaches)                              \
+  DEV_PFN(EXCLUDED, vkMergePipelineCaches)                              \
   DEV_PFN(EXCLUDED, vkMergeValidationCachesEXT)                         \
   DEV_PFN(EXCLUDED, vkRegisterDeviceEventEXT)                           \
   DEV_PFN(EXCLUDED, vkRegisterDisplayEventEXT)                          \
   DEV_PFN(EXCLUDED, vkRegisterObjectsNVX)                               \
   DEV_PFN(REQUIRED, vkResetCommandPool)                                 \
-  DEV_PFN(REQUIRED, vkResetDescriptorPool)                              \
-  DEV_PFN(REQUIRED, vkResetEvent)                                       \
-  DEV_PFN(REQUIRED, vkResetFences)                                      \
+  DEV_PFN(EXCLUDED, vkResetDescriptorPool)                              \
+  DEV_PFN(EXCLUDED, vkResetEvent)                                       \
+  DEV_PFN(EXCLUDED, vkResetFences)                                      \
   DEV_PFN(EXCLUDED, vkResetQueryPoolEXT)                                \
   DEV_PFN(EXCLUDED, vkSetDebugUtilsObjectNameEXT)                       \
   DEV_PFN(EXCLUDED, vkSetDebugUtilsObjectTagEXT)                        \
-  DEV_PFN(REQUIRED, vkSetEvent)                                         \
+  DEV_PFN(EXCLUDED, vkSetEvent)                                         \
   DEV_PFN(EXCLUDED, vkSetHdrMetadataEXT)                                \
   DEV_PFN(EXCLUDED, vkSetLocalDimmingAMD)                               \
   DEV_PFN(EXCLUDED, vkTrimCommandPool)                                  \
@@ -314,8 +314,8 @@ namespace vulkan {
   INS_PFN(EXCLUDED, vkSubmitDebugUtilsMessageEXT)                       \
   INS_PFN(REQUIRED, vkCreateDevice)                                     \
   INS_PFN(EXCLUDED, vkCreateDisplayModeKHR)                             \
-  INS_PFN(REQUIRED, vkEnumerateDeviceExtensionProperties)               \
-  INS_PFN(REQUIRED, vkEnumerateDeviceLayerProperties)                   \
+  INS_PFN(EXCLUDED, vkEnumerateDeviceExtensionProperties)               \
+  INS_PFN(EXCLUDED, vkEnumerateDeviceLayerProperties)                   \
   INS_PFN(EXCLUDED, vkGetDisplayModeProperties2KHR)                     \
   INS_PFN(EXCLUDED, vkGetDisplayModePropertiesKHR)                      \
   INS_PFN(EXCLUDED, vkGetDisplayPlaneCapabilities2KHR)                  \
@@ -337,7 +337,7 @@ namespace vulkan {
   INS_PFN(REQUIRED, vkGetPhysicalDeviceFeatures)                        \
   INS_PFN(EXCLUDED, vkGetPhysicalDeviceFeatures2)                       \
   INS_PFN(EXCLUDED, vkGetPhysicalDeviceFeatures2KHR)                    \
-  INS_PFN(REQUIRED, vkGetPhysicalDeviceFormatProperties)                \
+  INS_PFN(EXCLUDED, vkGetPhysicalDeviceFormatProperties)                \
   INS_PFN(EXCLUDED, vkGetPhysicalDeviceFormatProperties2)               \
   INS_PFN(EXCLUDED, vkGetPhysicalDeviceFormatProperties2KHR)            \
   INS_PFN(EXCLUDED, vkGetPhysicalDeviceGeneratedCommandsPropertiesNVX)  \
@@ -438,13 +438,13 @@ namespace vulkan {
 #define UVKC_VULKAN_DYNAMIC_SYMBOL_TABLE_WIN32_KHR(INS_PFN, DEV_PFN) \
   DEV_PFN(EXCLUDED, vkAcquireFullScreenExclusiveModeEXT)             \
   DEV_PFN(EXCLUDED, vkGetDeviceGroupSurfacePresentModes2EXT)         \
-  DEV_PFN(REQUIRED, vkGetFenceWin32HandleKHR)                        \
+  DEV_PFN(EXCLUDED, vkGetFenceWin32HandleKHR)                        \
   DEV_PFN(EXCLUDED, vkGetMemoryWin32HandleKHR)                       \
   DEV_PFN(EXCLUDED, vkGetMemoryWin32HandleNV)                        \
   DEV_PFN(EXCLUDED, vkGetMemoryWin32HandlePropertiesKHR)             \
-  DEV_PFN(REQUIRED, vkGetSemaphoreWin32HandleKHR)                    \
-  DEV_PFN(REQUIRED, vkImportFenceWin32HandleKHR)                     \
-  DEV_PFN(REQUIRED, vkImportSemaphoreWin32HandleKHR)                 \
+  DEV_PFN(EXCLUDED, vkGetSemaphoreWin32HandleKHR)                    \
+  DEV_PFN(EXCLUDED, vkImportFenceWin32HandleKHR)                     \
+  DEV_PFN(EXCLUDED, vkImportSemaphoreWin32HandleKHR)                 \
   DEV_PFN(EXCLUDED, vkReleaseFullScreenExclusiveModeEXT)             \
   INS_PFN(EXCLUDED, vkCreateWin32SurfaceKHR)                         \
   INS_PFN(EXCLUDED, vkGetPhysicalDeviceSurfacePresentModes2EXT)      \
