@@ -37,28 +37,27 @@ static uint32_t kVectorShaderCode[] = {
 };
 
 struct ShaderCode {
-  const uint32_t *code;
-  size_t size;
-  const char *name;
+  const char *name;       // Test case name
+  const uint32_t *code;   // SPIR-V code
+  size_t code_num_bytes;  // Number of bytes for SPIR-V code
+  int element_num_bytes;  // Number of bytes for each element in data array
 };
 
 static ShaderCode kShaderCodeCases[] = {
-    {kScalarShaderCode, sizeof(kScalarShaderCode) / sizeof(uint32_t), "scalar"},
-    {kVectorShaderCode, sizeof(kVectorShaderCode) / sizeof(uint32_t), "vector"},
+    {"scalar", kScalarShaderCode, sizeof(kScalarShaderCode), 4},
+    {"vector", kVectorShaderCode, sizeof(kVectorShaderCode), 4 * 4},
 };
 
 static void CopyStorageBufferScalar(::benchmark::State &state,
                                     ::uvkc::vulkan::Device *device,
-                                    const uint32_t *code, size_t size,
-                                    int num_elements) {
-  size_t buffer_size = num_elements * sizeof(float);
-
+                                    const uint32_t *code, size_t code_num_words,
+                                    size_t buffer_num_bytes, int num_elements) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
 
   BM_CHECK_OK_AND_ASSIGN(auto shader_module,
-                         device->CreateShaderModule(code, size));
+                         device->CreateShaderModule(code, code_num_words));
 
   ::uvkc::vulkan::Pipeline::SpecConstant spec_constant = {};
   spec_constant.id = 0;
@@ -82,19 +81,20 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
       auto src_buffer,
       device->CreateBuffer(
           VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer_size));
+          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer_num_bytes));
   BM_CHECK_OK_AND_ASSIGN(
       auto dst_buffer,
       device->CreateBuffer(
           VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer_size));
+          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer_num_bytes));
 
   //===-------------------------------------------------------------------===/
   // Set source buffer data
   //===-------------------------------------------------------------------===/
 
   BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
-      device, src_buffer.get(), buffer_size, [](void *ptr, size_t num_bytes) {
+      device, src_buffer.get(), buffer_num_bytes,
+      [](void *ptr, size_t num_bytes) {
         float *src_float_buffer = reinterpret_cast<float *>(ptr);
         std::iota(src_float_buffer,
                   src_float_buffer + num_bytes / sizeof(float), 0.0f);
@@ -137,7 +137,8 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
   //===-------------------------------------------------------------------===/
 
   BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
-      device, dst_buffer.get(), buffer_size, [](void *ptr, size_t num_bytes) {
+      device, dst_buffer.get(), buffer_num_bytes,
+      [](void *ptr, size_t num_bytes) {
         float *dst_float_buffer = reinterpret_cast<float *>(ptr);
         for (int i = 0; i < num_bytes / sizeof(float); ++i) {
           BM_CHECK_EQ(dst_float_buffer[i], i)
@@ -168,7 +169,7 @@ static void CopyStorageBufferScalar(::benchmark::State &state,
     state.SetIterationTime(elapsed_seconds.count());
     BM_CHECK_OK(cmdbuf->Reset());
   }
-  state.SetBytesProcessed(buffer_size);
+  state.SetBytesProcessed(state.iterations() * buffer_num_bytes * 2);  // R + W
 
   // Reset the command pool to release all command buffers in the benchmarking
   // loop to avoid draining GPU resources.
@@ -192,7 +193,9 @@ void RegisterVulkanBenchmarks(VulkanContext *context) {
             absl::StrCat(gpu_name, "/", shader.name, "/", num_bytes);
         ::benchmark::RegisterBenchmark(
             test_name.c_str(), CopyStorageBufferScalar,
-            context->devices[di].get(), shader.code, shader.size, num_bytes / 4)
+            context->devices[di].get(), shader.code,
+            shader.code_num_bytes / sizeof(uint32_t), num_bytes,
+            num_bytes / shader.element_num_bytes)
             ->UseManualTime()
             ->Unit(::benchmark::kMicrosecond);
       }

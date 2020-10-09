@@ -14,7 +14,7 @@ layout(set = 0, binding = 1) buffer OutputBuffer {
 
 void main()
 {
+    // Must guarantee index is in range during dispatch.
     uint index = gl_GlobalInvocationID.x;
-    if (index < kArraySize)
-        output_values[index] = input_values[index];
+    output_values[index] = input_values[index];
 }
