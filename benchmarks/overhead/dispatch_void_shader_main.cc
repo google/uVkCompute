@@ -12,12 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <chrono>
 #include <memory>
-#include <numeric>
 
-#include "absl/strings/str_cat.h"
-#include "absl/types/span.h"
 #include "benchmark/benchmark.h"
 #include "uvkc/benchmark/dispatch_void_shader.h"
 #include "uvkc/benchmark/main.h"
@@ -38,6 +34,10 @@ void RegisterVulkanBenchmarks(
     const LatencyMeasure *latency_measure,
     const vulkan::Driver::PhysicalDeviceInfo &physical_device,
     vulkan::Device *device) {
+  BM_CHECK_EQ(latency_measure->mode,
+              ::uvkc::benchmark::LatencyMeasureMode::kSystemSubmit)
+      << kBenchmarkName << " only supports system_submit latency measure mode";
+
   double void_dispatch_latency_seconds = 0;
   const char *gpu_name = physical_device.properties.deviceName;
   RegisterDispatchVoidShaderBenchmark(gpu_name, device,
