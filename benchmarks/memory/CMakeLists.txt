@@ -35,6 +35,7 @@ uvkc_cc_binary(
     ::copy_storage_buffer_scalar_shader
     ::copy_storage_buffer_vector_shader
     benchmark::benchmark
+    uvkc::benchmark::dispatch_void_shader
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
 )

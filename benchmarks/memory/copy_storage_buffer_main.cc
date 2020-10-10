@@ -19,6 +19,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "benchmark/benchmark.h"
+#include "uvkc/benchmark/dispatch_void_shader.h"
 #include "uvkc/benchmark/main.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_buffer_util.h"
@@ -26,7 +27,7 @@
 #include "uvkc/vulkan/device.h"
 #include "uvkc/vulkan/pipeline.h"
 
-static const char kBenchmarkName[] = "copy_storage_buffer_scalar";
+static const char kBenchmarkName[] = "copy_storage_buffer";
 
 static uint32_t kScalarShaderCode[] = {
 #include "copy_storage_buffer_scalar_shader_spirv_instance.inc"
@@ -48,10 +49,12 @@ static ShaderCode kShaderCodeCases[] = {
     {"vector", kVectorShaderCode, sizeof(kVectorShaderCode), 4 * 4},
 };
 
-static void CopyStorageBuffer(::benchmark::State &state,
-                              ::uvkc::vulkan::Device *device,
-                              const uint32_t *code, size_t code_num_words,
-                              size_t buffer_num_bytes, int num_elements) {
+static void CopyStorageBuffer(
+    ::benchmark::State &state, ::uvkc::vulkan::Device *device,
+    const uint32_t *code, size_t code_num_words, size_t buffer_num_bytes,
+    int num_elements,
+    // Use pointer to avoid copy the value at benchmark registration time
+    const double *void_dispatch_latency_seconds) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
@@ -166,7 +169,8 @@ static void CopyStorageBuffer(::benchmark::State &state,
     auto elapsed_seconds =
         std::chrono::duration_cast<std::chrono::duration<double>>(end_time -
                                                                   start_time);
-    state.SetIterationTime(elapsed_seconds.count());
+    state.SetIterationTime(elapsed_seconds.count() -
+                           *void_dispatch_latency_seconds);
     BM_CHECK_OK(cmdbuf->Reset());
   }
   state.SetBytesProcessed(state.iterations() * buffer_num_bytes * 2);  // R + W
@@ -186,15 +190,21 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
 void RegisterVulkanBenchmarks(VulkanContext *context) {
   for (int di = 0; di < context->devices.size(); ++di) {  // GPU
     const char *gpu_name = context->physical_devices[di].properties.deviceName;
+    auto *device = context->devices[di].get();
+
+    RegisterDispatchVoidShaderBenchmark(
+        gpu_name, device, &context->void_dispatch_latency_seconds);
+
     for (const auto &shader : kShaderCodeCases) {  // Scalar/vector shader
       for (int shift = 20; shift < 26; ++shift) {  // Number of bytes: 1M -> 32M
         int num_bytes = 1 << shift;
         std::string test_name =
             absl::StrCat(gpu_name, "/", shader.name, "/", num_bytes);
         ::benchmark::RegisterBenchmark(
-            test_name.c_str(), CopyStorageBuffer, context->devices[di].get(),
-            shader.code, shader.code_num_bytes / sizeof(uint32_t), num_bytes,
-            num_bytes / shader.element_num_bytes)
+            test_name.c_str(), CopyStorageBuffer, device, shader.code,
+            shader.code_num_bytes / sizeof(uint32_t), num_bytes,
+            num_bytes / shader.element_num_bytes,
+            &context->void_dispatch_latency_seconds)
             ->UseManualTime()
             ->Unit(::benchmark::kMicrosecond);
       }
