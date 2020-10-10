@@ -25,6 +25,9 @@
 #include "uvkc/benchmark/vulkan_context.h"
 #include "uvkc/vulkan/device.h"
 #include "uvkc/vulkan/pipeline.h"
+#include "uvkc/vulkan/timestamp_query_pool.h"
+
+using ::uvkc::benchmark::LatencyMeasureMode;
 
 static const char kBenchmarkName[] = "copy_storage_buffer";
 
@@ -153,27 +156,58 @@ static void CopyStorageBuffer(
   // Benchmarking
   //===-------------------------------------------------------------------===/
 
+  std::unique_ptr<::uvkc::vulkan::TimestampQueryPool> query_pool;
+  bool use_timestamp =
+      latency_measure->mode == LatencyMeasureMode::kGpuTimestamp;
+  if (use_timestamp) {
+    BM_CHECK_OK_AND_ASSIGN(query_pool, device->CreateTimestampQueryPool(2));
+  }
+
   BM_CHECK_OK_AND_ASSIGN(auto cmdbuf, device->AllocateCommandBuffer());
   for (auto _ : state) {
     BM_CHECK_OK(cmdbuf->Begin());
+    if (use_timestamp) cmdbuf->ResetQueryPool(*query_pool);
+
     cmdbuf->BindPipelineAndDescriptorSets(
         *pipeline,
         {bound_descriptor_sets.data(), bound_descriptor_sets.size()});
+
+    if (use_timestamp) {
+      cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
+    }
+
     cmdbuf->Dispatch(num_elements / 32, 1, 1);
+
+    if (use_timestamp) {
+      cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                             1);
+    }
+
     BM_CHECK_OK(cmdbuf->End());
+
     auto start_time = std::chrono::high_resolution_clock::now();
     BM_CHECK_OK(device->QueueSubmitAndWait(*cmdbuf));
     auto end_time = std::chrono::high_resolution_clock::now();
     auto elapsed_seconds =
         std::chrono::duration_cast<std::chrono::duration<double>>(end_time -
                                                                   start_time);
-    if (latency_measure->mode ==
-        ::uvkc::benchmark::LatencyMeasureMode::kSystemDispatch) {
-      state.SetIterationTime(elapsed_seconds.count() -
-                             latency_measure->void_dispatch_latency_seconds);
-    } else {
-      state.SetIterationTime(elapsed_seconds.count());
+
+    switch (latency_measure->mode) {
+      case LatencyMeasureMode::kSystemDispatch: {
+        state.SetIterationTime(elapsed_seconds.count() -
+                               latency_measure->void_dispatch_latency_seconds);
+      } break;
+      case LatencyMeasureMode::kSystemSubmit: {
+        state.SetIterationTime(elapsed_seconds.count());
+      } break;
+      case LatencyMeasureMode::kGpuTimestamp: {
+        BM_CHECK_OK_AND_ASSIGN(
+            double timestamp_seconds,
+            query_pool->CalculateElapsedSecondsBetween(0, 1));
+        state.SetIterationTime(timestamp_seconds);
+      } break;
     }
+
     BM_CHECK_OK(cmdbuf->Reset());
   }
   state.SetBytesProcessed(state.iterations() * buffer_num_bytes * 2);  // R + W

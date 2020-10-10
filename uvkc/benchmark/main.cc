@@ -38,10 +38,14 @@ bool AbslParseFlag(absl::string_view text, LatencyMeasureMode *mode,
     *mode = LatencyMeasureMode::kSystemDispatch;
     return true;
   }
+  if (text == "gpu_timestamp") {
+    *mode = LatencyMeasureMode::kGpuTimestamp;
+    return true;
+  }
 
   *error =
       "unknown value for latency measure mode; supported choices are "
-      "'system_submit', 'system_dispatch'";
+      "'system_submit', 'system_dispatch', 'gpu_timestamp'";
   return false;
 }
 
@@ -51,6 +55,8 @@ std::string AbslUnparseFlag(LatencyMeasureMode mode) {
       return "system_submit";
     case LatencyMeasureMode::kSystemDispatch:
       return "system_dispatch";
+    case LatencyMeasureMode::kGpuTimestamp:
+      return "gpu_timestamp";
   }
 }
 
@@ -72,9 +78,10 @@ extern "C" int main(int argc, char **argv) {
   // errors.
 
   absl::SetProgramUsageMessage(R"(Run Vulkan compute benchmarks
-    --latency_measure_mode=[system_submit|system_dispatch]
+    --latency_measure_mode=[system_submit|system_dispatch|gpu_timestamp]
       * system_submit: time spent from queue submit to returning from queue wait
       * system_dispatch: system_submit subtracted by time for void dispatch
+      * gpu_timestamp: timestamp difference measured on GPU
 
   Optional flags from Google Benchmark library:
     [--benchmark_list_tests={true|false}]

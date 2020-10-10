@@ -30,6 +30,8 @@ enum class LatencyMeasureMode {
   kSystemSubmit,
   // system_submit subtracted by time for void dispatch
   kSystemDispatch,
+  // Timestamp difference measured on GPU
+  kGpuTimestamp,
 };
 
 struct LatencyMeasure {
