@@ -17,6 +17,8 @@
 
 #include "absl/status/statusor.h"
 #include "uvkc/benchmark/vulkan_context.h"
+#include "uvkc/vulkan/device.h"
+#include "uvkc/vulkan/driver.h"
 
 namespace uvkc {
 namespace benchmark {
@@ -31,7 +33,11 @@ namespace benchmark {
 absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext();
 
 // Registers all Vulkan benchmarks for the current benchmark binary.
-void RegisterVulkanBenchmarks(VulkanContext *vulkan_context);
+void RegisterVulkanBenchmarks(
+    // Use pointer here to avoid copy the value at benchmark registration time
+    const LatencyMeasure *latency_measure,
+    const vulkan::Driver::PhysicalDeviceInfo &physical_device,
+    vulkan::Device *device);
 
 }  // namespace benchmark
 }  // namespace uvkc

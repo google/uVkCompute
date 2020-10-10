@@ -34,13 +34,14 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
   return CreateDefaultVulkanContext(kBenchmarkName);
 }
 
-void RegisterVulkanBenchmarks(VulkanContext *context) {
-  for (int di = 0; di < context->devices.size(); ++di) {  // GPU
-    const char *gpu_name = context->physical_devices[di].properties.deviceName;
-    RegisterDispatchVoidShaderBenchmark(
-        gpu_name, context->devices[di].get(),
-        &context->void_dispatch_latency_seconds);
-  }
+void RegisterVulkanBenchmarks(
+    const LatencyMeasure *latency_measure,
+    const vulkan::Driver::PhysicalDeviceInfo &physical_device,
+    vulkan::Device *device) {
+  double void_dispatch_latency_seconds = 0;
+  const char *gpu_name = physical_device.properties.deviceName;
+  RegisterDispatchVoidShaderBenchmark(gpu_name, device,
+                                      &void_dispatch_latency_seconds);
 }
 
 }  // namespace benchmark

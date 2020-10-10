@@ -25,18 +25,32 @@
 namespace uvkc {
 namespace benchmark {
 
+enum class LatencyMeasureMode {
+  // time spent from queue submit to returning from queue wait
+  kSystemSubmit,
+  // system_submit subtracted by time for void dispatch
+  kSystemDispatch,
+};
+
+struct LatencyMeasure {
+  LatencyMeasureMode mode;
+  double void_dispatch_latency_seconds;
+};
+
 // A struct for holding the Vulkan application context for benchmarks.
 //
 // This struct is meant to meant to contain Vulkan object handles that share
 // among multiple benchmarks, for example, the Vulkan driver and device.
-// Benchmark applications can subclass this struct further to add more such
-// fields for their specific cases.
+//
+// TODO: add a way to support benchmark-specific data.
 struct VulkanContext {
   std::unique_ptr<vulkan::DynamicSymbols> symbols;
   std::unique_ptr<vulkan::Driver> driver;
+
   std::vector<vulkan::Driver::PhysicalDeviceInfo> physical_devices;
   std::vector<std::unique_ptr<vulkan::Device>> devices;
-  double void_dispatch_latency_seconds;
+
+  LatencyMeasure latency_measure;
 
   VulkanContext(
       std::unique_ptr<vulkan::DynamicSymbols> symbols,

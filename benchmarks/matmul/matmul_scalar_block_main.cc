@@ -37,7 +37,10 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
   return CreateDefaultVulkanContext(kBenchmarkName);
 }
 
-void RegisterVulkanBenchmarks(VulkanContext *context) {}
+void RegisterVulkanBenchmarks(
+    const LatencyMeasure *latency_measure,
+    const vulkan::Driver::PhysicalDeviceInfo &physical_device,
+    vulkan::Device *device) {}
 
 }  // namespace benchmark
 }  // namespace uvkc

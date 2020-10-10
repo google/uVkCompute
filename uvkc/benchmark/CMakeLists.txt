@@ -20,8 +20,11 @@ uvkc_cc_library(
   SRCS
     "main.cc"
   DEPS
+    ::dispatch_void_shader
     ::status_util
     ::vulkan_context
+    absl::flags
+    absl::flags_parse
     benchmark::benchmark
     uvkc::base::log
 )

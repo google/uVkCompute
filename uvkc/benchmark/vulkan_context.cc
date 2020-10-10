@@ -28,7 +28,7 @@ VulkanContext::VulkanContext(
       driver(std::move(driver)),
       physical_devices(std::move(physical_devices)),
       devices(std::move(devices)),
-      void_dispatch_latency_seconds(0.) {}
+      latency_measure({LatencyMeasureMode::kSystemSubmit, 0.}) {}
 
 absl::StatusOr<std::unique_ptr<VulkanContext>> CreateDefaultVulkanContext(
     const char *app_name) {
