@@ -37,6 +37,14 @@ list(APPEND CMAKE_MODULE_PATH
   )
 
 include(AbseilConfigureCopts)
+
+# By default Abseil strips string literals on mobile platforms, which means
+# we cannot run binaries via command-line with proper options. Turn off
+# the stripping.
+if(ANDROID)
+  add_definitions(-DABSL_FLAGS_STRIP_NAMES=0)
+endif()
+
 include(uvkc_find_vulkan_toolchain)
 
 include(uvkc_utils)
