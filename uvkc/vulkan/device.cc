@@ -20,12 +20,14 @@
 #include "absl/status/status.h"
 #include "uvkc/base/status.h"
 #include "uvkc/vulkan/status_util.h"
+#include "uvkc/vulkan/timestamp_query_pool.h"
 
 namespace uvkc {
 namespace vulkan {
 
 absl::StatusOr<std::unique_ptr<Device>> Device::Create(
     VkPhysicalDevice physical_device, uint32_t queue_family_index,
+    uint32_t valid_timestamp_bits, uint32_t nanoseconds_per_timestamp_value,
     VkDevice device, const DynamicSymbols &symbols) {
   VkCommandPoolCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -38,7 +40,8 @@ absl::StatusOr<std::unique_ptr<Device>> Device::Create(
       device, &create_info, /*pAllocator=*/nullptr, &command_pool));
 
   return absl::WrapUnique(new Device(
-      device, physical_device, queue_family_index, command_pool, symbols));
+      device, physical_device, queue_family_index, valid_timestamp_bits,
+      nanoseconds_per_timestamp_value, command_pool, symbols));
 }
 
 Device::~Device() {
@@ -165,6 +168,13 @@ absl::Status Device::ResetCommandPool() {
       device_, command_pool_, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT));
 }
 
+absl::StatusOr<std::unique_ptr<TimestampQueryPool>>
+Device::CreateTimestampQueryPool(uint32_t query_count) {
+  return TimestampQueryPool::Create(device_, valid_timestamp_bits_,
+                                    nanoseconds_per_timestamp_value_,
+                                    query_count, symbols_);
+}
+
 absl::Status Device::QueueSubmitAndWait(const CommandBuffer &command_buffer) {
   VkFenceCreateInfo fence_create_info = {};
   fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -192,13 +202,16 @@ absl::Status Device::QueueSubmitAndWait(const CommandBuffer &command_buffer) {
 }
 
 Device::Device(VkDevice device, VkPhysicalDevice physical_device,
-               uint32_t queue_family_index, VkCommandPool command_pool,
-               const DynamicSymbols &symbols)
+               uint32_t queue_family_index, uint32_t valid_timestamp_bits,
+               uint32_t nanoseconds_per_timestamp_value,
+               VkCommandPool command_pool, const DynamicSymbols &symbols)
     : device_(device),
       physical_device_(physical_device),
       memory_properties_(),
       queue_(VK_NULL_HANDLE),
       queue_family_index_(queue_family_index),
+      valid_timestamp_bits_(valid_timestamp_bits),
+      nanoseconds_per_timestamp_value_(nanoseconds_per_timestamp_value),
       command_pool_(command_pool),
       symbols_(symbols) {
   symbols_.vkGetPhysicalDeviceMemoryProperties(physical_device_,

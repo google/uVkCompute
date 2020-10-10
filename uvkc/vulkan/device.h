@@ -28,6 +28,7 @@
 #include "uvkc/vulkan/dynamic_symbols.h"
 #include "uvkc/vulkan/pipeline.h"
 #include "uvkc/vulkan/shader_module.h"
+#include "uvkc/vulkan/timestamp_query_pool.h"
 
 namespace uvkc {
 namespace vulkan {
@@ -44,6 +45,7 @@ class Device {
   // Wraps a logical |device| from |physical_device| of |queue_family_index|.
   static absl::StatusOr<std::unique_ptr<Device>> Create(
       VkPhysicalDevice physical_device, uint32_t queue_family_index,
+      uint32_t valid_timestamp_bits, uint32_t nanoseconds_per_timestamp_value,
       VkDevice device, const DynamicSymbols &symbols);
 
   ~Device();
@@ -92,12 +94,17 @@ class Device {
   // buffers allocated from this device thus far.
   absl::Status ResetCommandPool();
 
+  // Creates a query pool for managing |query_count| timestamp queries.
+  absl::StatusOr<std::unique_ptr<TimestampQueryPool>> CreateTimestampQueryPool(
+      uint32_t query_count);
+
   // Submits the given |command_buffer| to the queue.
   absl::Status QueueSubmitAndWait(const CommandBuffer &command_buffer);
 
  private:
   Device(VkDevice device, VkPhysicalDevice physical_device,
-         uint32_t queue_family_index, VkCommandPool command_pool,
+         uint32_t queue_family_index, uint32_t valid_timestamp_bits,
+         uint32_t nanoseconds_per_timestamp_value, VkCommandPool command_pool,
          const DynamicSymbols &symbols);
 
   // Selects a memory type among |supported_memory_types| that statisfies
@@ -114,6 +121,8 @@ class Device {
 
   VkQueue queue_;
   uint32_t queue_family_index_;
+  uint32_t valid_timestamp_bits_;
+  uint32_t nanoseconds_per_timestamp_value_;
 
   VkCommandPool command_pool_;
 

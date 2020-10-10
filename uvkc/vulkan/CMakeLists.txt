@@ -96,6 +96,7 @@ uvkc_cc_library(
     ::dynamic_symbols
     ::pipeline
     ::shader_module
+    ::timestamp_query_pool
     absl::statusor
     Vulkan::Vulkan
 )
@@ -181,5 +182,20 @@ uvkc_cc_library(
     -DVK_NO_PROTOTYPES
   DEPS
     absl::status
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    timestamp_query_pool
+  HDRS
+    "timestamp_query_pool.h"
+  SRCS
+    "timestamp_query_pool.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
+  DEPS
+    ::dynamic_symbols
+    absl::statusor
     Vulkan::Vulkan
 )

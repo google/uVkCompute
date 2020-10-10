@@ -51,7 +51,7 @@ class Driver {
   // Creates a logical device from the given |physical_device| with the ability
   // to use a queue of the given |queue_flags|.
   absl::StatusOr<std::unique_ptr<Device>> CreateDevice(
-      VkPhysicalDevice physical_device, VkQueueFlags queue_flags);
+      const PhysicalDeviceInfo &physical_device, VkQueueFlags queue_flags);
 
  private:
   explicit Driver(VkInstance instance, const DynamicSymbols &symbols);

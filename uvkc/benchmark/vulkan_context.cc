@@ -43,7 +43,7 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateDefaultVulkanContext(
   for (const auto &physical_device : physical_devices) {
     UVKC_ASSIGN_OR_RETURN(
         auto device,
-        driver->CreateDevice(physical_device.handle, VK_QUEUE_COMPUTE_BIT));
+        driver->CreateDevice(physical_device, VK_QUEUE_COMPUTE_BIT));
     devices.push_back(std::move(device));
   }
   return std::make_unique<VulkanContext>(std::move(symbols), std::move(driver),

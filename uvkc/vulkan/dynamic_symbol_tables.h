@@ -112,7 +112,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCmdPushDescriptorSetWithTemplateKHR)              \
   DEV_PFN(EXCLUDED, vkCmdReserveSpaceForCommandsNVX)                    \
   DEV_PFN(EXCLUDED, vkCmdResetEvent)                                    \
-  DEV_PFN(EXCLUDED, vkCmdResetQueryPool)                                \
+  DEV_PFN(REQUIRED, vkCmdResetQueryPool)                                \
   DEV_PFN(EXCLUDED, vkCmdResolveImage)                                  \
   DEV_PFN(EXCLUDED, vkCmdSetBlendConstants)                             \
   DEV_PFN(EXCLUDED, vkCmdSetCheckpointNV)                               \
@@ -138,7 +138,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCmdWaitEvents)                                    \
   DEV_PFN(EXCLUDED, vkCmdWriteAccelerationStructuresPropertiesNV)       \
   DEV_PFN(EXCLUDED, vkCmdWriteBufferMarkerAMD)                          \
-  DEV_PFN(EXCLUDED, vkCmdWriteTimestamp)                                \
+  DEV_PFN(REQUIRED, vkCmdWriteTimestamp)                                \
   DEV_PFN(REQUIRED, vkEndCommandBuffer)                                 \
   DEV_PFN(REQUIRED, vkResetCommandBuffer)                               \
   DEV_PFN(EXCLUDED, vkAcquireNextImage2KHR)                             \
@@ -173,7 +173,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCreateObjectTableNVX)                             \
   DEV_PFN(EXCLUDED, vkCreatePipelineCache)                              \
   DEV_PFN(REQUIRED, vkCreatePipelineLayout)                             \
-  DEV_PFN(EXCLUDED, vkCreateQueryPool)                                  \
+  DEV_PFN(REQUIRED, vkCreateQueryPool)                                  \
   DEV_PFN(EXCLUDED, vkCreateRayTracingPipelinesNV)                      \
   DEV_PFN(EXCLUDED, vkCreateRenderPass)                                 \
   DEV_PFN(EXCLUDED, vkCreateRenderPass2KHR)                             \
@@ -206,7 +206,7 @@ namespace vulkan {
   DEV_PFN(REQUIRED, vkDestroyPipeline)                                  \
   DEV_PFN(EXCLUDED, vkDestroyPipelineCache)                             \
   DEV_PFN(REQUIRED, vkDestroyPipelineLayout)                            \
-  DEV_PFN(EXCLUDED, vkDestroyQueryPool)                                 \
+  DEV_PFN(REQUIRED, vkDestroyQueryPool)                                 \
   DEV_PFN(EXCLUDED, vkDestroyRenderPass)                                \
   DEV_PFN(EXCLUDED, vkDestroySampler)                                   \
   DEV_PFN(EXCLUDED, vkDestroySamplerYcbcrConversion)                    \
@@ -254,7 +254,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkGetMemoryHostPointerPropertiesEXT)                \
   DEV_PFN(EXCLUDED, vkGetPastPresentationTimingGOOGLE)                  \
   DEV_PFN(EXCLUDED, vkGetPipelineCacheData)                             \
-  DEV_PFN(EXCLUDED, vkGetQueryPoolResults)                              \
+  DEV_PFN(REQUIRED, vkGetQueryPoolResults)                              \
   DEV_PFN(EXCLUDED, vkGetRayTracingShaderGroupHandlesNV)                \
   DEV_PFN(EXCLUDED, vkGetRefreshCycleDurationGOOGLE)                    \
   DEV_PFN(EXCLUDED, vkGetRenderAreaGranularity)                         \

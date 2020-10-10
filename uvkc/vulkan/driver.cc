@@ -41,9 +41,11 @@ VkApplicationInfo GetDefaultApplicationInfo(const char *app_name) {
 }
 
 // Selects a queue family with the required |queue_flags| in |physical_device|
-// and returns the queue family index.
+// If found, writes the |valid_timestamp_bits| and returns the queue family
+// index.
 absl::StatusOr<uint32_t> SelectQueueFamily(VkPhysicalDevice physical_device,
                                            VkQueueFlags queue_flags,
+                                           uint32_t *valid_timestamp_bits,
                                            const DynamicSymbols &symbols) {
   uint32_t count;
   symbols.vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count,
@@ -56,8 +58,10 @@ absl::StatusOr<uint32_t> SelectQueueFamily(VkPhysicalDevice physical_device,
   for (int index = 0; index < count; ++index) {
     const VkQueueFamilyProperties &properties = queue_families[index];
     if (properties.queueCount > 0 &&
-        ((properties.queueFlags & queue_flags) == queue_flags))
+        ((properties.queueFlags & queue_flags) == queue_flags)) {
+      *valid_timestamp_bits = properties.timestampValidBits;
       return index;
+    }
   }
 
   return absl::UnavailableError("cannot find queue family with required bits");
@@ -112,10 +116,12 @@ Driver::EnumeratePhysicalDevices() {
 }
 
 absl::StatusOr<std::unique_ptr<Device>> Driver::CreateDevice(
-    VkPhysicalDevice physical_device, VkQueueFlags queue_flags) {
-  UVKC_ASSIGN_OR_RETURN(
-      uint32_t queue_family_index,
-      SelectQueueFamily(physical_device, queue_flags, symbols_));
+    const Driver::PhysicalDeviceInfo &physical_device,
+    VkQueueFlags queue_flags) {
+  uint32_t valid_timestamp_bits = 0;
+  UVKC_ASSIGN_OR_RETURN(uint32_t queue_family_index,
+                        SelectQueueFamily(physical_device.handle, queue_flags,
+                                          &valid_timestamp_bits, symbols_));
 
   float queue_priority = 1.0;
 
@@ -140,10 +146,12 @@ absl::StatusOr<std::unique_ptr<Device>> Driver::CreateDevice(
   device_create_info.pEnabledFeatures = nullptr;
 
   VkDevice device;
-  VK_RETURN_IF_ERROR(symbols_.vkCreateDevice(physical_device,
+  VK_RETURN_IF_ERROR(symbols_.vkCreateDevice(physical_device.handle,
                                              &device_create_info,
                                              /*pAllocator=*/nullptr, &device));
-  return Device::Create(physical_device, queue_family_index, device, symbols_);
+  return Device::Create(
+      physical_device.handle, queue_family_index, valid_timestamp_bits,
+      physical_device.properties.limits.timestampPeriod, device, symbols_);
 }
 
 Driver::Driver(VkInstance instance, const DynamicSymbols &symbols)

@@ -25,6 +25,7 @@
 #include "uvkc/vulkan/buffer.h"
 #include "uvkc/vulkan/dynamic_symbols.h"
 #include "uvkc/vulkan/pipeline.h"
+#include "uvkc/vulkan/timestamp_query_pool.h"
 
 namespace uvkc {
 namespace vulkan {
@@ -68,6 +69,15 @@ class CommandBuffer {
   void BindPipelineAndDescriptorSets(
       const Pipeline &pipeline,
       absl::Span<const BoundDescriptorSet> bound_descriptor_sets);
+
+  // Records a command to reset the given timestamp |query_pool|.
+  void ResetQueryPool(const TimestampQueryPool &query_pool);
+
+  // Records a command to write the timestamp at the given |pipeline_stage| to
+  // the query with |query_index| in the |query_pool|.
+  void WriteTimestamp(const TimestampQueryPool &query_pool,
+                      VkPipelineStageFlagBits pipeline_stage,
+                      uint32_t query_index);
 
   // Records a dispatch command.
   void Dispatch(uint32_t x, uint32_t y, uint32_t z);

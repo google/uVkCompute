@@ -16,6 +16,7 @@
 
 #include "absl/status/status.h"
 #include "uvkc/vulkan/status_util.h"
+#include "uvkc/vulkan/timestamp_query_pool.h"
 
 namespace uvkc {
 namespace vulkan {
@@ -80,6 +81,19 @@ void CommandBuffer::BindPipelineAndDescriptorSets(
         /*dynamicOffsetCount=*/0,
         /*pDynamicOffsets=*/nullptr);
   }
+}
+
+void CommandBuffer::ResetQueryPool(const TimestampQueryPool &query_pool) {
+  symbols_.vkCmdResetQueryPool(command_buffer_, query_pool.query_pool(),
+                               /*firstQuery=*/0,
+                               /*queryCount=*/query_pool.query_count());
+}
+
+void CommandBuffer::WriteTimestamp(const TimestampQueryPool &query_pool,
+                                   VkPipelineStageFlagBits pipeline_stage,
+                                   uint32_t query_index) {
+  symbols_.vkCmdWriteTimestamp(command_buffer_, pipeline_stage,
+                               query_pool.query_pool(), query_index);
 }
 
 void CommandBuffer::Dispatch(uint32_t x, uint32_t y, uint32_t z) {
