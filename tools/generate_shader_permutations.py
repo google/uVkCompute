@@ -91,19 +91,34 @@ def generate_productions(defines):
 
 
 def main(args):
-  base_command = [args.glslc, "-c", "-fshader-stage=compute", "-mfmt=num",
-                  args.infile.name, "-o", "-"]
+  # Base command for generating SPIR-V code
+  base_code_command = [args.glslc, "-c", "-fshader-stage=compute", "-mfmt=num",
+                       args.infile.name, "-o", "-"]
+  # Base command for generating SPIR-V assembly
+  base_asm_command = [args.glslc, "-S", "-fshader-stage=compute",
+                      args.infile.name, "-o", "-"]
   spirv_variables = []
 
   for case in generate_productions(args.define):
     var_name = case[0]
-    command = base_command
+
+    # Generate SPIR-V code
+    command = base_code_command
     command.extend(case[1])
     if args.verbose:
       print("glslc command: '{}'".format(" ".join(command)))
-    spirv = subprocess.check_output(command).decode("ascii")
+    spirv_code = subprocess.check_output(command).decode("ascii")
+
+    # Generate SPIR-V assembly
+    command = base_asm_command
+    command.extend(case[1])
+    if args.verbose:
+      print("glslc command: '{}'".format(" ".join(command)))
+    spirv_asm = subprocess.check_output(command).decode("ascii")
+
     spirv_variables.append(
-        "static const uint32_t {}[] = {{\n{}}};\n".format(var_name, spirv))
+        "static const uint32_t {}[] = {{\n/*\n{}*/\n{}}};\n".format(
+            var_name, spirv_asm, spirv_code))
 
   all_variables = "\n".join(spirv_variables)
   args.outfile.write(all_variables)

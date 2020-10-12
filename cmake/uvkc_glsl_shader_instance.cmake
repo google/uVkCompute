@@ -49,18 +49,27 @@ function(uvkc_glsl_shader_instance)
   set(_OUTS "")
 
   set(_SPIRV_CODE "${CMAKE_CURRENT_BINARY_DIR}/${_RULE_NAME}_spirv_instance.inc")
+  set(_SPIRV_ASM "${CMAKE_CURRENT_BINARY_DIR}/${_RULE_NAME}_spirv_instance.spvasm")
   list(APPEND _OUTS "${_SPIRV_CODE}")
 
   # Add a custom command to invoke glslc to compile the GLSL source code
   add_custom_command(
     OUTPUT
       "${_SPIRV_CODE}"
+      "${_SPIRV_ASM}"
     COMMAND
       "${Vulkan_GLSLC_EXECUTABLE}"
         -c -fshader-stage=compute
         -mfmt=num
         "${CMAKE_CURRENT_SOURCE_DIR}/${_RULE_SRC}"
         -o "${_SPIRV_CODE}"
+        ${_RULE_GLSLC_ARGS}
+    # Also generate the SPIR-V assembly to ease inspection
+    COMMAND
+      "${Vulkan_GLSLC_EXECUTABLE}"
+        -S -fshader-stage=compute
+        "${CMAKE_CURRENT_SOURCE_DIR}/${_RULE_SRC}"
+        -o "${_SPIRV_ASM}"
         ${_RULE_GLSLC_ARGS}
     WORKING_DIRECTORY
       "${CMAKE_CURRENT_BINARY_DIR}"
