@@ -24,3 +24,27 @@ In general, to add a benchmark `foo`, the procedure should be:
   * Define `uvkc::benchmark::RegisterVulkanBenchmarks()` for programmatically
     registering benchmarks. Please refer to
     [Google Benchmark](https://github.com/google/benchmark) for APIs.
+
+## How to run a benchmark
+
+Benchmarks are stand-alone executables that pack all necessary resources inside,
+including the SPIR-V shader code. So one can copy it anywhere and execute.
+
+There are some common command-line options supported by all benchmark
+executables:
+
+### `--latency_measure_mode`
+
+This option controls how shader execution time is measured. Right now three
+modes are supported:
+
+* `system_submit`: time spent from queue submit to returning from queue wait.
+* `system_dispatch`: `system_submit` subtracted by time for a void dispatch.
+  This tries to remove the overhead of queue submit and wait so that we can
+  evaluate only the kernel "dispatch" time.
+* `gpu_timestamp`: timestamp difference between top and bottom of the pipeline
+  measured on GPU. This requires the GPU supports timestamp query.
+
+### `--benchmark_*`
+
+Various Goolge Benchmark control options. See `--help` for details.

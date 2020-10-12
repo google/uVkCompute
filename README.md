@@ -30,10 +30,10 @@ writing compute shader microbenchmarks. It tries to
   construct pipeline layouts and compute pipelines.
 * Provide thin wrapper over command buffer construction and shader dispatch.
 
-µVkCompute does not try to demostrate Vulkan programming best practices. For
-example, it just uses the system allocator and allocates separate memory for
-each buffer. Simplicity is favored instead of building a production-level
-Vulkan application.
+µVkCompute focuses more on single compute shader dispatch. µVkCompute does not
+try to demostrate Vulkan programming best practices. For example, it just uses
+the system allocator and allocates separate memory for each buffer. Simplicity
+is favored instead of building a production-level Vulkan application.
 
 ## Dependencies
 
