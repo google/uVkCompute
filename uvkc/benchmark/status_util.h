@@ -34,6 +34,11 @@ namespace benchmark {
 #define BM_CHECK_EQ(a, b) BM_CHECK((a) == (b))
 #define BM_CHECK_NE(a, b) BM_CHECK((a) != (b))
 
+// clang-format off
+#define BM_CHECK_FLOAT_EQ(a, b, epsilon) BM_CHECK(std::fabs((a) - (b)) < (epsilon))
+#define BM_CHECK_FLOAT_NE(a, b, epsilon) BM_CHECK(std::fabs((a) - (b)) >= (epsilon))
+// clang-format on
+
 // Checks thel expression `rexpr` that returns a `absl::Status`. On error,
 // prints the message to the error logger and aborts the program.
 #define BM_CHECK_OK(rexpr)                                               \

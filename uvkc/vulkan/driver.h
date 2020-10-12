@@ -42,7 +42,8 @@ class Driver {
 
   struct PhysicalDeviceInfo {
     VkPhysicalDevice handle;
-    VkPhysicalDeviceProperties properties;
+    VkPhysicalDeviceProperties v10_properties;
+    VkPhysicalDeviceSubgroupProperties subgroup_properties;
   };
 
   // Enumerates all available physical devices on system.

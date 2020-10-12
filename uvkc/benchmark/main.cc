@@ -115,7 +115,7 @@ extern "C" int main(int argc, char **argv) {
     auto *device = context->devices[i].get();
     if (mode == uvkc::benchmark::LatencyMeasureMode::kSystemDispatch) {
       uvkc::benchmark::RegisterDispatchVoidShaderBenchmark(
-          physical_device.properties.deviceName, device,
+          physical_device.v10_properties.deviceName, device,
           &context->latency_measure.void_dispatch_latency_seconds);
     }
     uvkc::benchmark::RegisterVulkanBenchmarks(&context->latency_measure,

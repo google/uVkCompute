@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <numeric>
 
@@ -29,33 +30,49 @@
 
 using ::uvkc::benchmark::LatencyMeasureMode;
 
-static const char kBenchmarkName[] = "copy_storage_buffer";
+static const char kBenchmarkName[] = "subgroup_arthmetic";
 
-static uint32_t kScalarShaderCode[] = {
-#include "copy_storage_buffer_scalar_shader_spirv_instance.inc"
+static uint32_t kAddLoopCode[] = {
+#include "subgroup_add_loop_spirv_instance.inc"
 };
 
-static uint32_t kVectorShaderCode[] = {
-#include "copy_storage_buffer_vector_shader_spirv_instance.inc"
+static uint32_t kAddIntrinsicCode[] = {
+#include "subgroup_add_intrinsic_spirv_instance.inc"
 };
+
+static uint32_t kMulLoopCode[] = {
+#include "subgroup_mul_loop_spirv_instance.inc"
+};
+
+static uint32_t kMulIntrinsicCode[] = {
+#include "subgroup_mul_intrinsic_spirv_instance.inc"
+};
+
+enum class Arithmetic { Add, Mul };
 
 struct ShaderCode {
   const char *name;       // Test case name
   const uint32_t *code;   // SPIR-V code
   size_t code_num_bytes;  // Number of bytes for SPIR-V code
-  int element_num_bytes;  // Number of bytes for each element in data array
+  Arithmetic op;
 };
 
 static ShaderCode kShaderCodeCases[] = {
-    {"scalar", kScalarShaderCode, sizeof(kScalarShaderCode), 4},
-    {"vector", kVectorShaderCode, sizeof(kVectorShaderCode), 4 * 4},
+    // clang-format off
+    {"add/loop", kAddLoopCode, sizeof(kAddLoopCode), Arithmetic::Add},
+    {"add/intrinsic", kAddIntrinsicCode, sizeof(kAddIntrinsicCode), Arithmetic::Add},
+    {"mul/loop", kMulLoopCode, sizeof(kMulLoopCode), Arithmetic::Mul},
+    {"mul/intrinsic", kMulIntrinsicCode, sizeof(kMulIntrinsicCode), Arithmetic::Mul},
+    // clang-format on
 };
 
-static void CopyStorageBuffer(
+static void CalculateSubgroupArithmetic(
     ::benchmark::State &state, ::uvkc::vulkan::Device *device,
     const ::uvkc::benchmark::LatencyMeasure *latency_measure,
-    const uint32_t *code, size_t code_num_words, size_t buffer_num_bytes,
-    int num_elements) {
+    const uint32_t *code, size_t code_num_words, int num_elements,
+    uint32_t subgroup_size, Arithmetic arith_op) {
+  size_t buffer_num_bytes = num_elements * sizeof(float);
+
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
@@ -96,12 +113,25 @@ static void CopyStorageBuffer(
   // Set source buffer data
   //===-------------------------------------------------------------------===/
 
+  // +: fill the whole buffer as 1.0f.
+  // *: fill with alternating subgroup_size and (1 / subgroup_size).
   BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
       device, src_buffer.get(), buffer_num_bytes,
-      [](void *ptr, size_t num_bytes) {
+      [arith_op, subgroup_size](void *ptr, size_t num_bytes) {
         float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        std::iota(src_float_buffer,
-                  src_float_buffer + num_bytes / sizeof(float), 0.0f);
+        switch (arith_op) {
+          case Arithmetic::Add: {
+            for (int i = 0; i < num_bytes / sizeof(float); ++i) {
+              src_float_buffer[i] = 1.0f;
+            }
+          } break;
+          case Arithmetic::Mul: {
+            for (int i = 0; i < num_bytes / sizeof(float); i += 2) {
+              src_float_buffer[i] = subgroup_size;
+              src_float_buffer[i + 1] = 1.0f / subgroup_size;
+            }
+          } break;
+        }
       }));
 
   //===-------------------------------------------------------------------===/
@@ -142,13 +172,39 @@ static void CopyStorageBuffer(
 
   BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
       device, dst_buffer.get(), buffer_num_bytes,
-      [](void *ptr, size_t num_bytes) {
+      [arith_op, subgroup_size](void *ptr, size_t num_bytes) {
         float *dst_float_buffer = reinterpret_cast<float *>(ptr);
-        for (int i = 0; i < num_bytes / sizeof(float); ++i) {
-          BM_CHECK_EQ(dst_float_buffer[i], i)
-              << "destination buffer element #" << i
-              << " has incorrect value: expected to be " << i << " but found "
-              << dst_float_buffer[i];
+        switch (arith_op) {
+          case Arithmetic::Add: {
+            for (int i = 0; i < num_bytes / sizeof(float); ++i) {
+              float expected_value = 1.0f;
+              if (i % subgroup_size == 0) {
+                expected_value = subgroup_size;
+              }
+
+              BM_CHECK_EQ(dst_float_buffer[i], expected_value)
+                  << "destination buffer element #" << i
+                  << " has incorrect value: expected to be " << expected_value
+                  << " but found " << dst_float_buffer[i];
+            }
+          } break;
+          case Arithmetic::Mul: {
+            for (int i = 0; i < num_bytes / sizeof(float); ++i) {
+              float expected_value = 0.0f;
+              if (i % subgroup_size == 0) {
+                expected_value = 1.0f;
+              } else if (i % 2 == 0) {
+                expected_value = subgroup_size;
+              } else {
+                expected_value = 1.0f / subgroup_size;
+              }
+
+              BM_CHECK_EQ(dst_float_buffer[i], expected_value)
+                  << "destination buffer element #" << i
+                  << " has incorrect value: expected to be " << expected_value
+                  << " but found " << dst_float_buffer[i];
+            }
+          } break;
         }
       }));
 
@@ -210,7 +266,11 @@ static void CopyStorageBuffer(
 
     BM_CHECK_OK(cmdbuf->Reset());
   }
-  state.SetBytesProcessed(state.iterations() * buffer_num_bytes * 2);  // R + W
+  state.counters["FLOps"] =
+      ::benchmark::Counter(num_elements,
+                           ::benchmark::Counter::kIsIterationInvariant |
+                               ::benchmark::Counter::kIsRate,
+                           ::benchmark::Counter::kIs1000);
 
   // Reset the command pool to release all command buffers in the benchmarking
   // loop to avoid draining GPU resources.
@@ -230,18 +290,16 @@ void RegisterVulkanBenchmarks(
     vulkan::Device *device) {
   const char *gpu_name = physical_device.v10_properties.deviceName;
 
-  for (const auto &shader : kShaderCodeCases) {  // Scalar/vector shader
-    for (int shift = 20; shift < 26; ++shift) {  // Number of bytes: 1M -> 32M
-      int num_bytes = 1 << shift;
-      std::string test_name =
-          absl::StrCat(gpu_name, "/", shader.name, "/", num_bytes);
-      ::benchmark::RegisterBenchmark(
-          test_name.c_str(), CopyStorageBuffer, device, latency_measure,
-          shader.code, shader.code_num_bytes / sizeof(uint32_t), num_bytes,
-          num_bytes / shader.element_num_bytes)
-          ->UseManualTime()
-          ->Unit(::benchmark::kMicrosecond);
-    }
+  for (const auto &shader : kShaderCodeCases) {  // Loop/intrinsic shader
+    int num_elements = 1 << 20;                  // 1M
+    std::string test_name =
+        absl::StrCat(gpu_name, "/", shader.name, "/", num_elements);
+    ::benchmark::RegisterBenchmark(
+        test_name.c_str(), CalculateSubgroupArithmetic, device, latency_measure,
+        shader.code, shader.code_num_bytes / sizeof(uint32_t), num_elements,
+        physical_device.subgroup_properties.subgroupSize, shader.op)
+        ->UseManualTime()
+        ->Unit(::benchmark::kMicrosecond);
   }
 }
 

@@ -108,8 +108,20 @@ Driver::EnumeratePhysicalDevices() {
 
   std::vector<PhysicalDeviceInfo> infos(count);
   for (int i = 0; i < count; ++i) {
+    VkPhysicalDeviceSubgroupProperties subgroup_properties = {};
+    subgroup_properties.sType =
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+    subgroup_properties.pNext = nullptr;
+
+    VkPhysicalDeviceProperties2 properties2 = {};
+    properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    properties2.pNext = &subgroup_properties;
+
+    symbols_.vkGetPhysicalDeviceProperties2(devices[i], &properties2);
+
     infos[i].handle = devices[i];
-    symbols_.vkGetPhysicalDeviceProperties(devices[i], &infos[i].properties);
+    infos[i].v10_properties = properties2.properties;
+    infos[i].subgroup_properties = subgroup_properties;
   }
 
   return infos;
@@ -151,7 +163,7 @@ absl::StatusOr<std::unique_ptr<Device>> Driver::CreateDevice(
                                              /*pAllocator=*/nullptr, &device));
   return Device::Create(
       physical_device.handle, queue_family_index, valid_timestamp_bits,
-      physical_device.properties.limits.timestampPeriod, device, symbols_);
+      physical_device.v10_properties.limits.timestampPeriod, device, symbols_);
 }
 
 Driver::Driver(VkInstance instance, const DynamicSymbols &symbols)

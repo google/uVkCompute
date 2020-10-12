@@ -15,3 +15,4 @@
 add_subdirectory(matmul)
 add_subdirectory(memory)
 add_subdirectory(overhead)
+add_subdirectory(subgroup)

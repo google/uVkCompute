@@ -39,7 +39,7 @@ void RegisterVulkanBenchmarks(
       << kBenchmarkName << " only supports system_submit latency measure mode";
 
   double void_dispatch_latency_seconds = 0;
-  const char *gpu_name = physical_device.properties.deviceName;
+  const char *gpu_name = physical_device.v10_properties.deviceName;
   RegisterDispatchVoidShaderBenchmark(gpu_name, device,
                                       &void_dispatch_latency_seconds);
 }

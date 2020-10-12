@@ -18,6 +18,7 @@
 
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "uvkc/vulkan/status_util.h"
 
 namespace uvkc {
@@ -81,7 +82,8 @@ absl::StatusOr<VkDescriptorSetLayout> ShaderModule::GetDescriptorSetLayout(
     if (pipeline_layout_.set_layouts[i].set_number == set)
       return vk_set_layouts_[i];
   }
-  return absl::InvalidArgumentError("cannot find set layout for the given set");
+  return absl::InvalidArgumentError(
+      absl::StrCat("cannot find set layout object for set #", set));
 }
 
 std::unordered_map<uint32_t, VkDescriptorSetLayout>
@@ -102,8 +104,8 @@ ShaderModule::GetDescriptorSetLayoutBinding(uint32_t set,
       if (set_binding.binding == binding) return &set_binding;
     }
   }
-  return absl::InvalidArgumentError(
-      "cannot find binding info for the given set and binding");
+  return absl::InvalidArgumentError(absl::StrCat(
+      "cannot find binding info for set #", set, " and binding #", binding));
 }
 
 std::vector<VkDescriptorPoolSize> ShaderModule::CalculateDescriptorPoolSize()
