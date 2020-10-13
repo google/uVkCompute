@@ -25,10 +25,15 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
   return CreateDefaultVulkanContext(kBenchmarkName);
 }
 
-void RegisterVulkanBenchmarks(
-    const LatencyMeasure *latency_measure,
+bool RegisterVulkanOverheadBenchmark(
     const vulkan::Driver::PhysicalDeviceInfo &physical_device,
-    vulkan::Device *device) {
+    vulkan::Device *device, double *overhead_seconds) {
+  return false;
+}
+
+void RegisterVulkanBenchmarks(
+    const vulkan::Driver::PhysicalDeviceInfo &physical_device,
+    vulkan::Device *device, const LatencyMeasure *latency_measure) {
   const char *gpu_name = physical_device.v10_properties.deviceName;
 
   for (int shift = 20; shift < 26; ++shift) {  // Number of bytes: 1M -> 32M
@@ -36,9 +41,9 @@ void RegisterVulkanBenchmarks(
     for (auto element_type :
          {StorageBufferElementType::Float, StorageBufferElementType::Float4}) {
       double avg_latency_seconds = 0;
-      RegisterCopyStorageBufferBenchmark(gpu_name, device, num_bytes,
-                                         element_type, latency_measure,
-                                         &avg_latency_seconds);
+      RegisterCopyStorageBufferBenchmark(
+          gpu_name, device, num_bytes, element_type, latency_measure->mode,
+          &latency_measure->overhead_seconds, &avg_latency_seconds);
     }
   }
 }

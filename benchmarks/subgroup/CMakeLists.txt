@@ -63,6 +63,7 @@ uvkc_cc_binary(
     ::subgroup_mul_intrinsic
     ::subgroup_mul_loop
     benchmark::benchmark
+    benchmarks::memory::copy_storage_buffer_lib
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
 )

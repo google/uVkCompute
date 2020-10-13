@@ -20,6 +20,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "benchmark/benchmark.h"
+#include "benchmarks/memory/copy_storage_buffer.h"
 #include "uvkc/benchmark/main.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_buffer_util.h"
@@ -251,7 +252,7 @@ static void CalculateSubgroupArithmetic(
     switch (latency_measure->mode) {
       case LatencyMeasureMode::kSystemDispatch: {
         state.SetIterationTime(elapsed_seconds.count() -
-                               latency_measure->void_dispatch_latency_seconds);
+                               latency_measure->overhead_seconds);
       } break;
       case LatencyMeasureMode::kSystemSubmit: {
         state.SetIterationTime(elapsed_seconds.count());
@@ -277,6 +278,8 @@ static void CalculateSubgroupArithmetic(
   BM_CHECK_OK(device->ResetCommandPool());
 }
 
+static int kBufferNumElements = 1 << 20;  // 1M
+
 namespace uvkc {
 namespace benchmark {
 
@@ -284,20 +287,30 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
   return CreateDefaultVulkanContext(kBenchmarkName);
 }
 
-void RegisterVulkanBenchmarks(
-    const LatencyMeasure *latency_measure,
+bool RegisterVulkanOverheadBenchmark(
     const vulkan::Driver::PhysicalDeviceInfo &physical_device,
-    vulkan::Device *device) {
+    vulkan::Device *device, double *overhead_seconds) {
+  RegisterCopyStorageBufferBenchmark(physical_device.v10_properties.deviceName,
+                                     device, kBufferNumElements * sizeof(float),
+                                     StorageBufferElementType::Float,
+                                     LatencyMeasureMode::kSystemSubmit,
+                                     /*overhead_seconds=*/0, overhead_seconds);
+  return true;
+}
+
+void RegisterVulkanBenchmarks(
+    const vulkan::Driver::PhysicalDeviceInfo &physical_device,
+    vulkan::Device *device, const LatencyMeasure *latency_measure) {
   const char *gpu_name = physical_device.v10_properties.deviceName;
 
   for (const auto &shader : kShaderCodeCases) {  // Loop/intrinsic shader
-    int num_elements = 1 << 20;                  // 1M
     std::string test_name =
-        absl::StrCat(gpu_name, "/", shader.name, "/", num_elements);
+        absl::StrCat(gpu_name, "/", shader.name, "/", kBufferNumElements);
     ::benchmark::RegisterBenchmark(
         test_name.c_str(), CalculateSubgroupArithmetic, device, latency_measure,
-        shader.code, shader.code_num_bytes / sizeof(uint32_t), num_elements,
-        physical_device.subgroup_properties.subgroupSize, shader.op)
+        shader.code, shader.code_num_bytes / sizeof(uint32_t),
+        kBufferNumElements, physical_device.subgroup_properties.subgroupSize,
+        shader.op)
         ->UseManualTime()
         ->Unit(::benchmark::kMicrosecond);
   }

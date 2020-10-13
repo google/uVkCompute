@@ -30,10 +30,15 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
   return CreateDefaultVulkanContext(kBenchmarkName);
 }
 
-void RegisterVulkanBenchmarks(
-    const LatencyMeasure *latency_measure,
+bool RegisterVulkanOverheadBenchmark(
     const vulkan::Driver::PhysicalDeviceInfo &physical_device,
-    vulkan::Device *device) {
+    vulkan::Device *device, double *overhead_seconds) {
+  return false;
+}
+
+void RegisterVulkanBenchmarks(
+    const vulkan::Driver::PhysicalDeviceInfo &physical_device,
+    vulkan::Device *device, const LatencyMeasure *latency_measure) {
   BM_CHECK_EQ(latency_measure->mode,
               ::uvkc::benchmark::LatencyMeasureMode::kSystemSubmit)
       << kBenchmarkName << " only supports system_submit latency measure mode";

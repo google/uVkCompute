@@ -30,14 +30,31 @@ namespace benchmark {
 //
 // The context will be created before running all benchmarks and it will persist
 // during the lifetime of all benchmarks.
+//
+// Normally the benchmark just need to call CreateDefaultVulkanContext() with
+// the proper Vulkan application name.
 absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext();
 
-// Registers all Vulkan benchmarks for the current benchmark binary.
-void RegisterVulkanBenchmarks(
-    // Use pointer here to avoid copy the value at benchmark registration time
-    const LatencyMeasure *latency_measure,
+// Registers a benchmark for evaluating the overhead that should be subtracted
+// from the normal benchmark latency. Returns true if a benchmark is registered;
+// returns false if to use the default overhead latency benchmark (that is, void
+// shader dispatch).
+//
+// This is only used for LatencyMesaureMode::kSystemDispatch.
+bool RegisterVulkanOverheadBenchmark(
     const vulkan::Driver::PhysicalDeviceInfo &physical_device,
-    vulkan::Device *device);
+    vulkan::Device *device, double *overhead_seconds);
+
+// Registers all Vulkan benchmarks for the current benchmark binary.
+//
+// The |overhead_seconds| field in |latency_measure| should subtracted from the
+// latency measured by the registered benchmarks for
+// LatencyMeasureMode::kSystemDispatch.
+void RegisterVulkanBenchmarks(
+    const vulkan::Driver::PhysicalDeviceInfo &physical_device,
+    vulkan::Device *device,
+    // Use pointer here to avoid copy the value at benchmark registration time
+    const LatencyMeasure *latency_measure);
 
 }  // namespace benchmark
 }  // namespace uvkc

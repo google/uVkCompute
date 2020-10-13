@@ -21,6 +21,9 @@ In general, to add a benchmark `foo`, the procedure should be:
     `foo_spirv_permutation.inc`.
   * Define `uvkc::benchmark::CreateVulkanContext()` for creating the Vulkan
     context the persists among benchmark invocations.
+  * Define `uvkc::benchmark::RegisterVulkanOverheadBenchmark()` for registering
+    a benchmark to evaluate base latency overhead that should be subtracted
+    from normal benchmark latency measurements.
   * Define `uvkc::benchmark::RegisterVulkanBenchmarks()` for programmatically
     registering benchmarks. Please refer to
     [Google Benchmark](https://github.com/google/benchmark) for APIs.

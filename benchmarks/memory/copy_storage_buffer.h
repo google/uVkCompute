@@ -34,7 +34,8 @@ void RegisterCopyStorageBufferBenchmark(const char *gpu_name,
                                         vulkan::Device *device,
                                         size_t buffer_num_bytes,
                                         StorageBufferElementType element_type,
-                                        const LatencyMeasure *latency_measure,
+                                        LatencyMeasureMode latency_measure_mode,
+                                        const double *overhead_latency_seconds,
                                         double *avg_latency_seconds);
 
 }  // namespace benchmark

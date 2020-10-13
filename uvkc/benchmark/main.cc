@@ -114,12 +114,22 @@ extern "C" int main(int argc, char **argv) {
     const auto &physical_device = context->physical_devices[i];
     auto *device = context->devices[i].get();
     if (mode == uvkc::benchmark::LatencyMeasureMode::kSystemDispatch) {
-      uvkc::benchmark::RegisterDispatchVoidShaderBenchmark(
-          physical_device.v10_properties.deviceName, device,
-          &context->latency_measure.void_dispatch_latency_seconds);
+      // Register the overhead benchmark first to update the overhead latency,
+      // which will be used by following benchmarks. Note that we are only
+      // **registering** the benchmark here. So relies on the implicit ordering
+      // in benchmark execution to make sure the overhead is there when we run
+      // following benchmarks. This is true if Google Benchmark, which runs
+      // benchmarks at registration order.
+      if (!uvkc::benchmark::RegisterVulkanOverheadBenchmark(
+              physical_device, device,
+              &context->latency_measure.overhead_seconds)) {
+        uvkc::benchmark::RegisterDispatchVoidShaderBenchmark(
+            physical_device.v10_properties.deviceName, device,
+            &context->latency_measure.overhead_seconds);
+      }
     }
-    uvkc::benchmark::RegisterVulkanBenchmarks(&context->latency_measure,
-                                              physical_device, device);
+    uvkc::benchmark::RegisterVulkanBenchmarks(physical_device, device,
+                                              &context->latency_measure);
   }
 
   ::benchmark::RunSpecifiedBenchmarks();

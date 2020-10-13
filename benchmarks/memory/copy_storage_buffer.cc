@@ -31,8 +31,6 @@
 
 using ::uvkc::benchmark::LatencyMeasureMode;
 
-static const char kBenchmarkName[] = "copy_storage_buffer";
-
 static uint32_t kScalarShaderCode[] = {
 #include "copy_storage_buffer_scalar_shader_spirv_instance.inc"
 };
@@ -55,9 +53,10 @@ static ShaderCode kShaderCodeCases[] = {
 
 static void CopyStorageBuffer(
     ::benchmark::State &state, ::uvkc::vulkan::Device *device,
-    const ::uvkc::benchmark::LatencyMeasure *latency_measure,
-    const uint32_t *code, size_t code_num_words, size_t buffer_num_bytes,
-    int num_elements, double *avg_latency_seconds) {
+    ::uvkc::benchmark::LatencyMeasureMode latency_measure_mode,
+    const double *overhead_latency_seconds, const uint32_t *code,
+    size_t code_num_words, size_t buffer_num_bytes, int num_elements,
+    double *avg_latency_seconds) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
@@ -160,7 +159,7 @@ static void CopyStorageBuffer(
 
   std::unique_ptr<::uvkc::vulkan::TimestampQueryPool> query_pool;
   bool use_timestamp =
-      latency_measure->mode == LatencyMeasureMode::kGpuTimestamp;
+      latency_measure_mode == LatencyMeasureMode::kGpuTimestamp;
   if (use_timestamp) {
     BM_CHECK_OK_AND_ASSIGN(query_pool, device->CreateTimestampQueryPool(2));
   }
@@ -196,10 +195,9 @@ static void CopyStorageBuffer(
                                                                   start_time);
 
     double iteration_seconds = 0;
-    switch (latency_measure->mode) {
+    switch (latency_measure_mode) {
       case LatencyMeasureMode::kSystemDispatch: {
-        iteration_seconds = cpu_seconds.count() -
-                            latency_measure->void_dispatch_latency_seconds;
+        iteration_seconds = cpu_seconds.count() - *overhead_latency_seconds;
       } break;
       case LatencyMeasureMode::kSystemSubmit: {
         iteration_seconds = cpu_seconds.count();
@@ -230,15 +228,17 @@ void RegisterCopyStorageBufferBenchmark(const char *gpu_name,
                                         vulkan::Device *device,
                                         size_t buffer_num_bytes,
                                         StorageBufferElementType element_type,
-                                        const LatencyMeasure *latency_measure,
+                                        LatencyMeasureMode latency_measure_mode,
+                                        const double *overhead_latency_seconds,
                                         double *avg_latency_seconds) {
   int shader_index = static_cast<int>(element_type);
   const auto &shader = kShaderCodeCases[shader_index];
-  std::string test_name =
-      absl::StrCat(gpu_name, "/", shader.name, "/", buffer_num_bytes);
+  std::string test_name = absl::StrCat(gpu_name, "/copy_storage_buffer/",
+                                       shader.name, "/", buffer_num_bytes);
   ::benchmark::RegisterBenchmark(
-      test_name.c_str(), CopyStorageBuffer, device, latency_measure,
-      shader.code, shader.code_num_bytes / sizeof(uint32_t), buffer_num_bytes,
+      test_name.c_str(), CopyStorageBuffer, device, latency_measure_mode,
+      overhead_latency_seconds, shader.code,
+      shader.code_num_bytes / sizeof(uint32_t), buffer_num_bytes,
       buffer_num_bytes / shader.element_num_bytes, avg_latency_seconds)
       ->UseManualTime()
       ->Unit(::benchmark::kMicrosecond);

@@ -36,7 +36,7 @@ enum class LatencyMeasureMode {
 
 struct LatencyMeasure {
   LatencyMeasureMode mode;
-  double void_dispatch_latency_seconds;
+  double overhead_seconds;
 };
 
 // A struct for holding the Vulkan application context for benchmarks.
