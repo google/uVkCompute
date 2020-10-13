@@ -67,6 +67,8 @@ static ShaderCode kShaderCodeCases[] = {
     // clang-format on
 };
 
+static uint32_t kWorkgroupSize = 64;
+
 static void CalculateSubgroupArithmetic(
     ::benchmark::State &state, ::uvkc::vulkan::Device *device,
     const ::uvkc::benchmark::LatencyMeasure *latency_measure,
@@ -163,7 +165,7 @@ static void CalculateSubgroupArithmetic(
   BM_CHECK_OK(dispatch_cmdbuf->Begin());
   dispatch_cmdbuf->BindPipelineAndDescriptorSets(
       *pipeline, {bound_descriptor_sets.data(), bound_descriptor_sets.size()});
-  dispatch_cmdbuf->Dispatch(num_elements / 32, 1, 1);
+  dispatch_cmdbuf->Dispatch(num_elements / kWorkgroupSize, 1, 1);
   BM_CHECK_OK(dispatch_cmdbuf->End());
   BM_CHECK_OK(device->QueueSubmitAndWait(*dispatch_cmdbuf));
 
@@ -233,7 +235,7 @@ static void CalculateSubgroupArithmetic(
       cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
     }
 
-    cmdbuf->Dispatch(num_elements / 32, 1, 1);
+    cmdbuf->Dispatch(num_elements / kWorkgroupSize, 1, 1);
 
     if (use_timestamp) {
       cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
