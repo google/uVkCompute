@@ -12,3 +12,6 @@ compile_commands.json
 
 # Vim swap files
 [._]*.sw[a-p]
+
+# VSCode configurations
+.vscode/
