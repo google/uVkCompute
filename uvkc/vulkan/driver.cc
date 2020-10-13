@@ -20,6 +20,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "uvkc/base/status.h"
+#include "uvkc/base/target_platform.h"
 #include "uvkc/vulkan/dynamic_symbols.h"
 #include "uvkc/vulkan/status_util.h"
 
@@ -36,7 +37,11 @@ VkApplicationInfo GetDefaultApplicationInfo(const char *app_name) {
   app_info.applicationVersion = 0;
   app_info.pEngineName = "uVkCompute";
   app_info.engineVersion = 0;
-  app_info.apiVersion = VK_API_VERSION_1_0;
+#if defined(UVKC_PLATFORM_ANDROID)
+  app_info.apiVersion = VK_API_VERSION_1_1;
+#else
+  app_info.apiVersion = VK_API_VERSION_1_2;
+#endif
   return app_info;
 }
 
