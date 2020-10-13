@@ -92,10 +92,10 @@ def generate_productions(defines):
 
 def main(args):
   # Base command for generating SPIR-V code
-  base_code_command = [args.glslc, "-c", "-fshader-stage=compute", "-mfmt=num",
-                       args.infile.name, "-o", "-"]
+  base_code_command = [args.glslc, "-c", "-O", "-fshader-stage=compute",
+                       "-mfmt=num", args.infile.name, "-o", "-"]
   # Base command for generating SPIR-V assembly
-  base_asm_command = [args.glslc, "-S", "-fshader-stage=compute",
+  base_asm_command = [args.glslc, "-S", "-O", "-fshader-stage=compute",
                       args.infile.name, "-o", "-"]
   spirv_variables = []
 

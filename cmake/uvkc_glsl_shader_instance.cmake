@@ -59,7 +59,7 @@ function(uvkc_glsl_shader_instance)
       "${_SPIRV_ASM}"
     COMMAND
       "${Vulkan_GLSLC_EXECUTABLE}"
-        -c -fshader-stage=compute
+        -c -O -fshader-stage=compute
         -mfmt=num
         "${CMAKE_CURRENT_SOURCE_DIR}/${_RULE_SRC}"
         -o "${_SPIRV_CODE}"
@@ -67,7 +67,7 @@ function(uvkc_glsl_shader_instance)
     # Also generate the SPIR-V assembly to ease inspection
     COMMAND
       "${Vulkan_GLSLC_EXECUTABLE}"
-        -S -fshader-stage=compute
+        -S -O -fshader-stage=compute
         "${CMAKE_CURRENT_SOURCE_DIR}/${_RULE_SRC}"
         -o "${_SPIRV_ASM}"
         ${_RULE_GLSLC_ARGS}
