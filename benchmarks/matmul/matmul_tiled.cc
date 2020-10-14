@@ -43,8 +43,16 @@ struct ShaderCode {
 static ShaderCode kShaderCodeCases[] = {
     {"1x64", TILE_M_1_TILE_N_64, sizeof(TILE_M_1_TILE_N_64), 1, 64},
     {"2x64", TILE_M_2_TILE_N_64, sizeof(TILE_M_2_TILE_N_64), 2, 64},
+    {"3x64", TILE_M_3_TILE_N_64, sizeof(TILE_M_3_TILE_N_64), 3, 64},
     {"4x64", TILE_M_4_TILE_N_64, sizeof(TILE_M_4_TILE_N_64), 4, 64},
+    {"5x64", TILE_M_5_TILE_N_64, sizeof(TILE_M_5_TILE_N_64), 5, 64},
+    {"6x64", TILE_M_6_TILE_N_64, sizeof(TILE_M_6_TILE_N_64), 6, 64},
+    {"7x64", TILE_M_7_TILE_N_64, sizeof(TILE_M_7_TILE_N_64), 7, 64},
     {"8x64", TILE_M_8_TILE_N_64, sizeof(TILE_M_8_TILE_N_64), 8, 64},
+    {"9x64", TILE_M_9_TILE_N_64, sizeof(TILE_M_9_TILE_N_64), 9, 64},
+    {"10x64", TILE_M_10_TILE_N_64, sizeof(TILE_M_10_TILE_N_64), 10, 64},
+    {"11x64", TILE_M_11_TILE_N_64, sizeof(TILE_M_11_TILE_N_64), 11, 64},
+    {"12x64", TILE_M_12_TILE_N_64, sizeof(TILE_M_12_TILE_N_64), 12, 64},
     {"1x128", TILE_M_1_TILE_N_128, sizeof(TILE_M_1_TILE_N_128), 1, 128},
     {"2x128", TILE_M_2_TILE_N_128, sizeof(TILE_M_2_TILE_N_128), 2, 128},
     {"4x128", TILE_M_4_TILE_N_128, sizeof(TILE_M_4_TILE_N_128), 4, 128},
@@ -279,13 +287,15 @@ void RegisterVulkanBenchmarks(
   const int N = 1024;
   const int K = 1024;
   for (const auto &shader : kShaderCodeCases) {
+    int paddM = (M + shader.tileM - 1) / shader.tileM * shader.tileM;
+    int paddN = (N + shader.tileN - 1) / shader.tileN * shader.tileN;
     std::string test_name =
         absl::StrCat(gpu_name, "/", shader.name, "/", M, "x", N, "x", K, "/",
                      shader.tileM, "/", shader.tileN);
     ::benchmark::RegisterBenchmark(test_name.c_str(), MatMul, device,
                                    latency_measure, shader.code,
-                                   shader.code_num_bytes / sizeof(uint32_t), M,
-                                   N, K, shader.tileM, shader.tileN)
+                                   shader.code_num_bytes / sizeof(uint32_t),
+                                   paddM, paddN, K, shader.tileM, shader.tileN)
         ->UseManualTime()
         ->Unit(::benchmark::kMicrosecond);
   }
