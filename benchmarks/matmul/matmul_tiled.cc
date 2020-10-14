@@ -40,24 +40,29 @@ struct ShaderCode {
   int tileN;
 };
 
+#define SHADER_TILE(A, B) \
+  {#A "x" #B, TILE_M_##A##_TILE_N_##B, sizeof(TILE_M_##A##_TILE_N_##B), A, B},
+
+// clang-format off
 static ShaderCode kShaderCodeCases[] = {
-    {"1x64", TILE_M_1_TILE_N_64, sizeof(TILE_M_1_TILE_N_64), 1, 64},
-    {"2x64", TILE_M_2_TILE_N_64, sizeof(TILE_M_2_TILE_N_64), 2, 64},
-    {"3x64", TILE_M_3_TILE_N_64, sizeof(TILE_M_3_TILE_N_64), 3, 64},
-    {"4x64", TILE_M_4_TILE_N_64, sizeof(TILE_M_4_TILE_N_64), 4, 64},
-    {"5x64", TILE_M_5_TILE_N_64, sizeof(TILE_M_5_TILE_N_64), 5, 64},
-    {"6x64", TILE_M_6_TILE_N_64, sizeof(TILE_M_6_TILE_N_64), 6, 64},
-    {"7x64", TILE_M_7_TILE_N_64, sizeof(TILE_M_7_TILE_N_64), 7, 64},
-    {"8x64", TILE_M_8_TILE_N_64, sizeof(TILE_M_8_TILE_N_64), 8, 64},
-    {"9x64", TILE_M_9_TILE_N_64, sizeof(TILE_M_9_TILE_N_64), 9, 64},
-    {"10x64", TILE_M_10_TILE_N_64, sizeof(TILE_M_10_TILE_N_64), 10, 64},
-    {"11x64", TILE_M_11_TILE_N_64, sizeof(TILE_M_11_TILE_N_64), 11, 64},
-    {"12x64", TILE_M_12_TILE_N_64, sizeof(TILE_M_12_TILE_N_64), 12, 64},
-    {"1x128", TILE_M_1_TILE_N_128, sizeof(TILE_M_1_TILE_N_128), 1, 128},
-    {"2x128", TILE_M_2_TILE_N_128, sizeof(TILE_M_2_TILE_N_128), 2, 128},
-    {"4x128", TILE_M_4_TILE_N_128, sizeof(TILE_M_4_TILE_N_128), 4, 128},
-    {"8x128", TILE_M_8_TILE_N_128, sizeof(TILE_M_8_TILE_N_128), 8, 128},
+  SHADER_TILE(1, 64)
+  SHADER_TILE(2, 64)
+  SHADER_TILE(3, 64)
+  SHADER_TILE(4, 64)
+  SHADER_TILE(5, 64)
+  SHADER_TILE(6, 64)
+  SHADER_TILE(7, 64)
+  SHADER_TILE(8, 64)
+  SHADER_TILE(9, 64)
+  SHADER_TILE(10, 64)
+  SHADER_TILE(11, 64)
+  SHADER_TILE(12, 64)
+  SHADER_TILE(1, 128)
+  SHADER_TILE(2, 128)
+  SHADER_TILE(4, 128)
+  SHADER_TILE(8, 128)
 };
+// clang-format on
 
 static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    const ::uvkc::benchmark::LatencyMeasure *latency_measure,
@@ -258,7 +263,13 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
 
     BM_CHECK_OK(cmdbuf->Reset());
   }
-  state.SetItemsProcessed(state.iterations() * M * N * K * 2);
+
+  double numOperation = double(N) * double(M) * double(K) * 2.;
+  state.counters["FLOps"] =
+      ::benchmark::Counter(numOperation,
+                           ::benchmark::Counter::kIsIterationInvariant |
+                               ::benchmark::Counter::kIsRate,
+                           ::benchmark::Counter::kIs1000);
 
   // Reset the command pool to release all command buffers in the benchmarking
   // loop to avoid draining GPU resources.

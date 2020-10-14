@@ -1,7 +1,6 @@
 #version 450 core
 #pragma use_vulkan_memory_model
 #extension GL_EXT_scalar_block_layout : enable
-#extension GL_EXT_buffer_reference : enable
 #extension GL_EXT_control_flow_attributes : enable
 
 layout(binding=0) buffer InputA { vec4 x[]; } inputA;
