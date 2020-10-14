@@ -14,21 +14,21 @@
 
 uvkc_glsl_shader_permutation(
   NAME
-    matmul_scalar_block_shader
+    matmul_tiled_shader
   SRC
-    "matmul_scalar_block.glsl"
+    "matmul_tiled.glsl"
   PERMUTATION
-    "TILE_M=[32|64]"
+    "TILE_M=[1|2|3|4|5|6|7|8|9|10|11|12]"
     "TILE_N=[64|128]"
 )
 
 uvkc_cc_binary(
   NAME
-    matmul_scalar_block
+    matmul_tiled
   SRCS
-    "matmul_scalar_block_main.cc"
+    "matmul_tiled.cc"
   DEPS
-    ::matmul_scalar_block_shader
+    ::matmul_tiled_shader
     benchmark::benchmark
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
