@@ -12,8 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(compute)
-add_subdirectory(matmul)
-add_subdirectory(memory)
-add_subdirectory(overhead)
-add_subdirectory(subgroup)
+uvkc_glsl_shader_instance(
+  NAME
+    mad_throughput_shader
+  SRC
+    "mad_throughput.glsl"
+)
+
+uvkc_cc_binary(
+  NAME
+    mad_throughput
+  SRCS
+    "mad_throughput_main.cc"
+  DEPS
+    ::mad_throughput_shader
+    benchmark::benchmark
+    uvkc::benchmark::main
+    uvkc::benchmark::vulkan_buffer_util
+)
+
