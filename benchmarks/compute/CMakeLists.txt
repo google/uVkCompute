@@ -14,18 +14,18 @@
 
 uvkc_glsl_shader_instance(
   NAME
-    mad_throughput
+    mad_throughput_shader
   SRC
     "mad_throughput.glsl"
 )
 
 uvkc_cc_binary(
   NAME
-    throughput
+    mad_throughput
   SRCS
-    "throughput.cc"
+    "mad_throughput_main.cc"
   DEPS
-    ::mad_throughput
+    ::mad_throughput_shader
     benchmark::benchmark
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util

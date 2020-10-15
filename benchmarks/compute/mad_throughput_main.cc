@@ -31,7 +31,7 @@ using ::uvkc::benchmark::LatencyMeasureMode;
 static const char kBenchmarkName[] = "mad_throughput";
 
 static uint32_t kShaderCode[] = {
-#include "mad_throughput_spirv_instance.inc"
+#include "mad_throughput_shader_spirv_instance.inc"
 };
 
 struct ShaderCode {
@@ -260,7 +260,7 @@ void RegisterVulkanBenchmarks(
   const char *gpu_name = physical_device.v10_properties.deviceName;
 
   const size_t num_element = 1024 * 1024;
-  const int min_loop_count = 1000;
+  const int min_loop_count = 100000;
   const int max_loop_count = min_loop_count * 10;
   for (int loop_count = min_loop_count; loop_count <= max_loop_count;
        loop_count += min_loop_count) {
