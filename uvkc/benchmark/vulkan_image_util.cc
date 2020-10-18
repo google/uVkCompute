@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "uvkc/benchmark/vulkan_buffer_util.h"
+#include "uvkc/benchmark/vulkan_image_util.h"
 
 #include "uvkc/base/status.h"
 
 namespace uvkc {
 namespace benchmark {
 
-absl::Status SetDeviceBufferViaStagingBuffer(
-    vulkan::Device *device, vulkan::Buffer *device_buffer,
+absl::Status SetDeviceImageViaStagingBuffer(
+    vulkan::Device *device, vulkan::Image *device_image,
+    VkExtent3D image_dimensions, VkImageLayout to_layout,
     size_t buffer_size_in_bytes,
     const std::function<void(void *, size_t)> &staging_buffer_setter) {
   // Create a staging buffer.
@@ -38,16 +39,22 @@ absl::Status SetDeviceBufferViaStagingBuffer(
   // Copy the data to the device.
   UVKC_ASSIGN_OR_RETURN(auto cmdbuffer, device->AllocateCommandBuffer());
   UVKC_RETURN_IF_ERROR(cmdbuffer->Begin());
-  cmdbuffer->CopyBuffer(*staging_buffer, 0, *device_buffer, 0,
-                        buffer_size_in_bytes);
+  UVKC_RETURN_IF_ERROR(
+      cmdbuffer->TransitionImageLayout(*device_image, VK_IMAGE_LAYOUT_UNDEFINED,
+                                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL));
+  cmdbuffer->CopyBufferToImage(*staging_buffer, 0, *device_image,
+                               image_dimensions);
+  UVKC_RETURN_IF_ERROR(cmdbuffer->TransitionImageLayout(
+      *device_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, to_layout));
   UVKC_RETURN_IF_ERROR(cmdbuffer->End());
   UVKC_RETURN_IF_ERROR(device->QueueSubmitAndWait(*cmdbuffer));
 
   return absl::OkStatus();
 }
 
-absl::Status GetDeviceBufferViaStagingBuffer(
-    vulkan::Device *device, vulkan::Buffer *device_buffer,
+absl::Status GetDeviceImageViaStagingBuffer(
+    vulkan::Device *device, vulkan::Image *device_image,
+    VkExtent3D image_dimensions, VkImageLayout from_layout,
     size_t buffer_size_in_bytes,
     const std::function<void(void *, size_t)> &staging_buffer_getter) {
   // Create a staging buffer.
@@ -61,8 +68,10 @@ absl::Status GetDeviceBufferViaStagingBuffer(
   // Copy the data from the device.
   UVKC_ASSIGN_OR_RETURN(auto cmdbuffer, device->AllocateCommandBuffer());
   UVKC_RETURN_IF_ERROR(cmdbuffer->Begin());
-  cmdbuffer->CopyBuffer(*device_buffer, 0, *staging_buffer, 0,
-                        buffer_size_in_bytes);
+  UVKC_RETURN_IF_ERROR(cmdbuffer->TransitionImageLayout(
+      *device_image, from_layout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL));
+  cmdbuffer->CopyImageToBuffer(*device_image, image_dimensions, *staging_buffer,
+                               0);
   UVKC_RETURN_IF_ERROR(cmdbuffer->End());
   UVKC_RETURN_IF_ERROR(device->QueueSubmitAndWait(*cmdbuffer));
 

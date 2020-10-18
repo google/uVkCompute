@@ -26,6 +26,7 @@
 #include "uvkc/vulkan/command_buffer.h"
 #include "uvkc/vulkan/descriptor_pool.h"
 #include "uvkc/vulkan/dynamic_symbols.h"
+#include "uvkc/vulkan/image.h"
 #include "uvkc/vulkan/pipeline.h"
 #include "uvkc/vulkan/shader_module.h"
 #include "uvkc/vulkan/timestamp_query_pool.h"
@@ -55,6 +56,18 @@ class Device {
   absl::StatusOr<std::unique_ptr<Buffer>> CreateBuffer(
       VkBufferUsageFlags usage_flags, VkMemoryPropertyFlags memory_flags,
       VkDeviceSize size_in_bytes);
+
+  // Creates an image for the specified usage as indicated by |usage_flags| and
+  // memory properties as indicated in |memory_flags|.
+  absl::StatusOr<std::unique_ptr<Image>> CreateImage(
+      VkImageUsageFlags usage_flags, VkMemoryPropertyFlags memory_flags,
+      VkImageType image_type, VkFormat image_format, VkExtent3D dimensions,
+      VkImageTiling image_tiling, VkImageViewType view_type);
+
+  // Creates a sampler that performs nearest filtering and clipping to edge for
+  // U/V/W coordinate. The sampler does not supprot anisotropic filtering and
+  // comparison.
+  absl::StatusOr<std::unique_ptr<Sampler>> CreateSampler();
 
   // Creates a shader module from the SPIR-V code starting at |spirv_data| and
   // of |spirv_size| 32-bit integers.
@@ -87,6 +100,22 @@ class Device {
           &layout_set_map,
       absl::Span<const BoundBuffer> bound_buffers);
 
+  // An |image| and its bound descriptor |set| and binding| numbers.
+  struct BoundImage {
+    const Image *image;
+    const Sampler *sampler;
+    uint32_t set;
+    uint32_t binding;
+  };
+
+  // Attaches images to descriptors for use in dispatching the given
+  // |shader_module|.
+  absl::Status AttachImageToDescriptor(
+      const ShaderModule &shader_module,
+      const std::unordered_map<VkDescriptorSetLayout, VkDescriptorSet>
+          &layout_set_map,
+      absl::Span<const BoundImage> bound_images);
+
   // Allocates a primary command buffer.
   absl::StatusOr<std::unique_ptr<CommandBuffer>> AllocateCommandBuffer();
 
@@ -113,6 +142,12 @@ class Device {
   absl::StatusOr<uint32_t> SelectMemoryType(
       uint32_t supported_memory_types,
       VkMemoryPropertyFlags desired_memory_properties);
+
+  // Allocates Vulkan memory with the given |memory_flags| according to
+  // |memory_requirements|.
+  absl::StatusOr<VkDeviceMemory> AllocateMemory(
+      VkMemoryRequirements memory_requirements,
+      VkMemoryPropertyFlags memory_flags);
 
   VkDevice device_;
 

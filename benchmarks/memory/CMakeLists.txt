@@ -49,3 +49,23 @@ uvkc_cc_binary(
     ::copy_storage_buffer_lib
     uvkc::benchmark::main
 )
+
+uvkc_glsl_shader_instance(
+  NAME
+    copy_sampled_image_to_storage_buffer_shader
+  SRC
+    "copy_sampled_image_to_storage_buffer.glsl"
+)
+
+uvkc_cc_binary(
+  NAME
+    copy_sampled_image_to_storage_buffer
+  SRCS
+    "copy_sampled_image_to_storage_buffer_main.cc"
+  DEPS
+    ::copy_sampled_image_to_storage_buffer_shader
+    benchmark::benchmark
+    uvkc::benchmark::main
+    uvkc::benchmark::vulkan_buffer_util
+    uvkc::benchmark::vulkan_image_util
+)

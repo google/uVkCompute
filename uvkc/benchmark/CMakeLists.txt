@@ -14,6 +14,18 @@
 
 uvkc_cc_library(
   NAME
+    dispatch_void_shader
+  SRCS
+    "dispatch_void_shader.cc"
+  DEPS
+    ::void_shader
+    benchmark::benchmark
+    uvkc::vulkan::device
+    uvkc::vulkan::driver
+)
+
+uvkc_cc_library(
+  NAME
     main
   HDRS
     "main.h"
@@ -31,19 +43,6 @@ uvkc_cc_library(
 
 uvkc_cc_library(
   NAME
-    vulkan_buffer_util
-  HDRS
-    "vulkan_buffer_util.h"
-  SRCS
-    "vulkan_buffer_util.cc"
-  DEPS
-    absl::status
-    uvkc::vulkan::buffer
-    uvkc::vulkan::device
-)
-
-uvkc_cc_library(
-  NAME
     status_util
   HDRS
     "status_util.h"
@@ -53,6 +52,26 @@ uvkc_cc_library(
     absl::status
     absl::statusor
     uvkc::base::log
+)
+
+uvkc_glsl_shader_instance(
+  NAME
+    void_shader
+  SRC
+    "void_shader.glsl"
+)
+
+uvkc_cc_library(
+  NAME
+    vulkan_buffer_util
+  HDRS
+    "vulkan_buffer_util.h"
+  SRCS
+    "vulkan_buffer_util.cc"
+  DEPS
+    absl::status
+    uvkc::vulkan::buffer
+    uvkc::vulkan::device
 )
 
 uvkc_cc_library(
@@ -68,21 +87,15 @@ uvkc_cc_library(
     uvkc::vulkan::driver
 )
 
-uvkc_glsl_shader_instance(
-  NAME
-    void_shader
-  SRC
-    "void_shader.glsl"
-)
-
 uvkc_cc_library(
   NAME
-    dispatch_void_shader
+    vulkan_image_util
+  HDRS
+    "vulkan_image_util.h"
   SRCS
-    "dispatch_void_shader.cc"
+    "vulkan_image_util.cc"
   DEPS
-    ::void_shader
-    benchmark::benchmark
+    absl::status
     uvkc::vulkan::device
-    uvkc::vulkan::driver
+    uvkc::vulkan::image
 )

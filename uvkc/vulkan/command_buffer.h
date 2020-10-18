@@ -24,6 +24,7 @@
 #include "absl/status/statusor.h"
 #include "uvkc/vulkan/buffer.h"
 #include "uvkc/vulkan/dynamic_symbols.h"
+#include "uvkc/vulkan/image.h"
 #include "uvkc/vulkan/pipeline.h"
 #include "uvkc/vulkan/timestamp_query_pool.h"
 
@@ -57,6 +58,24 @@ class CommandBuffer {
   // Records a command to copy the |src_buffer| to |dst_buffer|.
   void CopyBuffer(const Buffer &src_buffer, size_t src_offset,
                   const Buffer &dst_buffer, size_t dst_offset, size_t length);
+
+  // Records a command to copy the tightly packed data starting at |src_offset|
+  // of the |src_buffer| to |dst_image|. The |dst_image| should be of
+  // VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL.
+  void CopyBufferToImage(const Buffer &src_buffer, size_t src_offset,
+                         const Image &dst_image, VkExtent3D image_dimensions);
+
+  // Records a command to copy the |src_image|'s data into a tightly packed
+  // |dst_buffer| starting at |dst_offset|.  The |src_image| should be of
+  // VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
+  void CopyImageToBuffer(const Image &src_image, VkExtent3D image_dimensions,
+                         const Buffer &dst_buffer, size_t dst_offset);
+
+  // Performs image layout transition from |from_layout| to |to_layout| of the
+  // given |image|.
+  absl::Status TransitionImageLayout(const Image &image,
+                                     VkImageLayout from_layout,
+                                     VkImageLayout to_layout);
 
   // A struct containing bound descriptor set information.
   struct BoundDescriptorSet {

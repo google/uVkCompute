@@ -70,9 +70,9 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCmdClearDepthStencilImage)                        \
   DEV_PFN(EXCLUDED, vkCmdCopyAccelerationStructureNV)                   \
   DEV_PFN(REQUIRED, vkCmdCopyBuffer)                                    \
-  DEV_PFN(EXCLUDED, vkCmdCopyBufferToImage)                             \
+  DEV_PFN(REQUIRED, vkCmdCopyBufferToImage)                             \
   DEV_PFN(EXCLUDED, vkCmdCopyImage)                                     \
-  DEV_PFN(EXCLUDED, vkCmdCopyImageToBuffer)                             \
+  DEV_PFN(REQUIRED, vkCmdCopyImageToBuffer)                             \
   DEV_PFN(EXCLUDED, vkCmdCopyQueryPoolResults)                          \
   DEV_PFN(EXCLUDED, vkCmdDebugMarkerBeginEXT)                           \
   DEV_PFN(EXCLUDED, vkCmdDebugMarkerEndEXT)                             \
@@ -105,7 +105,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCmdInsertDebugUtilsLabelEXT)                      \
   DEV_PFN(EXCLUDED, vkCmdNextSubpass)                                   \
   DEV_PFN(EXCLUDED, vkCmdNextSubpass2KHR)                               \
-  DEV_PFN(EXCLUDED, vkCmdPipelineBarrier)                               \
+  DEV_PFN(REQUIRED, vkCmdPipelineBarrier)                               \
   DEV_PFN(EXCLUDED, vkCmdProcessCommandsNVX)                            \
   DEV_PFN(EXCLUDED, vkCmdPushConstants)                                 \
   DEV_PFN(EXCLUDED, vkCmdPushDescriptorSetKHR)                          \
@@ -150,7 +150,7 @@ namespace vulkan {
   DEV_PFN(REQUIRED, vkBindBufferMemory)                                 \
   DEV_PFN(EXCLUDED, vkBindBufferMemory2)                                \
   DEV_PFN(EXCLUDED, vkBindBufferMemory2KHR)                             \
-  DEV_PFN(EXCLUDED, vkBindImageMemory)                                  \
+  DEV_PFN(REQUIRED, vkBindImageMemory)                                  \
   DEV_PFN(EXCLUDED, vkBindImageMemory2)                                 \
   DEV_PFN(EXCLUDED, vkBindImageMemory2KHR)                              \
   DEV_PFN(EXCLUDED, vkCompileDeferredNV)                                \
@@ -167,8 +167,8 @@ namespace vulkan {
   DEV_PFN(REQUIRED, vkCreateFence)                                      \
   DEV_PFN(EXCLUDED, vkCreateFramebuffer)                                \
   DEV_PFN(EXCLUDED, vkCreateGraphicsPipelines)                          \
-  DEV_PFN(EXCLUDED, vkCreateImage)                                      \
-  DEV_PFN(EXCLUDED, vkCreateImageView)                                  \
+  DEV_PFN(REQUIRED, vkCreateImage)                                      \
+  DEV_PFN(REQUIRED, vkCreateImageView)                                  \
   DEV_PFN(EXCLUDED, vkCreateIndirectCommandsLayoutNVX)                  \
   DEV_PFN(EXCLUDED, vkCreateObjectTableNVX)                             \
   DEV_PFN(EXCLUDED, vkCreatePipelineCache)                              \
@@ -177,7 +177,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkCreateRayTracingPipelinesNV)                      \
   DEV_PFN(EXCLUDED, vkCreateRenderPass)                                 \
   DEV_PFN(EXCLUDED, vkCreateRenderPass2KHR)                             \
-  DEV_PFN(EXCLUDED, vkCreateSampler)                                    \
+  DEV_PFN(REQUIRED, vkCreateSampler)                                    \
   DEV_PFN(EXCLUDED, vkCreateSamplerYcbcrConversion)                     \
   DEV_PFN(EXCLUDED, vkCreateSamplerYcbcrConversionKHR)                  \
   DEV_PFN(EXCLUDED, vkCreateSemaphore)                                  \
@@ -199,8 +199,8 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkDestroyEvent)                                     \
   DEV_PFN(REQUIRED, vkDestroyFence)                                     \
   DEV_PFN(EXCLUDED, vkDestroyFramebuffer)                               \
-  DEV_PFN(EXCLUDED, vkDestroyImage)                                     \
-  DEV_PFN(EXCLUDED, vkDestroyImageView)                                 \
+  DEV_PFN(REQUIRED, vkDestroyImage)                                     \
+  DEV_PFN(REQUIRED, vkDestroyImageView)                                 \
   DEV_PFN(EXCLUDED, vkDestroyIndirectCommandsLayoutNVX)                 \
   DEV_PFN(EXCLUDED, vkDestroyObjectTableNVX)                            \
   DEV_PFN(REQUIRED, vkDestroyPipeline)                                  \
@@ -208,7 +208,7 @@ namespace vulkan {
   DEV_PFN(REQUIRED, vkDestroyPipelineLayout)                            \
   DEV_PFN(REQUIRED, vkDestroyQueryPool)                                 \
   DEV_PFN(EXCLUDED, vkDestroyRenderPass)                                \
-  DEV_PFN(EXCLUDED, vkDestroySampler)                                   \
+  DEV_PFN(REQUIRED, vkDestroySampler)                                   \
   DEV_PFN(EXCLUDED, vkDestroySamplerYcbcrConversion)                    \
   DEV_PFN(EXCLUDED, vkDestroySamplerYcbcrConversionKHR)                 \
   DEV_PFN(EXCLUDED, vkDestroySemaphore)                                 \
@@ -241,7 +241,7 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkGetFenceFdKHR)                                    \
   DEV_PFN(EXCLUDED, vkGetFenceStatus)                                   \
   DEV_PFN(EXCLUDED, vkGetImageDrmFormatModifierPropertiesEXT)           \
-  DEV_PFN(EXCLUDED, vkGetImageMemoryRequirements)                       \
+  DEV_PFN(REQUIRED, vkGetImageMemoryRequirements)                       \
   DEV_PFN(EXCLUDED, vkGetImageMemoryRequirements2)                      \
   DEV_PFN(EXCLUDED, vkGetImageMemoryRequirements2KHR)                   \
   DEV_PFN(EXCLUDED, vkGetImageSparseMemoryRequirements)                 \

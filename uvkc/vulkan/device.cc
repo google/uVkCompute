@@ -15,10 +15,12 @@
 #include "uvkc/vulkan/device.h"
 
 #include <cstdint>
+#include <memory>
 
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "uvkc/base/status.h"
+#include "uvkc/vulkan/image.h"
 #include "uvkc/vulkan/status_util.h"
 #include "uvkc/vulkan/timestamp_query_pool.h"
 
@@ -70,23 +72,102 @@ absl::StatusOr<std::unique_ptr<Buffer>> Device::CreateBuffer(
   symbols_.vkGetBufferMemoryRequirements(device_, buffer, &memory_requirements);
 
   // Allocate memory for the buffer
-  VkMemoryAllocateInfo allocate_info = {};
-  allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocate_info.pNext = nullptr;
-  allocate_info.allocationSize = memory_requirements.size;
-  UVKC_ASSIGN_OR_RETURN(
-      allocate_info.memoryTypeIndex,
-      SelectMemoryType(memory_requirements.memoryTypeBits, memory_flags));
-
-  VkDeviceMemory memory = VK_NULL_HANDLE;
-  VK_RETURN_IF_ERROR(symbols_.vkAllocateMemory(device_, &allocate_info,
-                                               /*pAlloator=*/nullptr, &memory));
+  UVKC_ASSIGN_OR_RETURN(VkDeviceMemory memory,
+                        AllocateMemory(memory_requirements, memory_flags));
 
   // Bind the memory to the buffer
   VK_RETURN_IF_ERROR(
       symbols_.vkBindBufferMemory(device_, buffer, memory, /*memoryOffset=*/0));
 
   return std::make_unique<Buffer>(device_, memory, buffer, symbols_);
+}
+
+absl::StatusOr<std::unique_ptr<Image>> Device::CreateImage(
+    VkImageUsageFlags usage_flags, VkMemoryPropertyFlags memory_flags,
+    VkImageType image_type, VkFormat image_format, VkExtent3D dimensions,
+    VkImageTiling image_tiling, VkImageViewType view_type) {
+  VkImageCreateInfo create_info = {};
+  create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  create_info.pNext = nullptr;
+  create_info.flags = 0;
+  create_info.imageType = image_type;
+  create_info.format = image_format;
+  create_info.extent = dimensions;
+  create_info.mipLevels = 1;
+  create_info.arrayLayers = 1;
+  create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+  create_info.tiling = image_tiling;
+  create_info.usage = usage_flags;
+  create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  create_info.queueFamilyIndexCount = 0;
+  create_info.pQueueFamilyIndices = nullptr;
+  create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+  VkImage image = VK_NULL_HANDLE;
+  VK_RETURN_IF_ERROR(symbols_.vkCreateImage(device_, &create_info,
+                                            /*allocator=*/nullptr, &image));
+
+  // Get memory requirements for the image
+  VkMemoryRequirements memory_requirements;
+  symbols_.vkGetImageMemoryRequirements(device_, image, &memory_requirements);
+
+  // Allocate memory for the image
+  UVKC_ASSIGN_OR_RETURN(VkDeviceMemory memory,
+                        AllocateMemory(memory_requirements, memory_flags));
+
+  // Bind the memory to the image
+  VK_RETURN_IF_ERROR(
+      symbols_.vkBindImageMemory(device_, image, memory, /*memoryOffset=*/0));
+
+  // Create image view for the image
+  VkImageViewCreateInfo view_create_info = {};
+  view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  view_create_info.pNext = nullptr;
+  view_create_info.flags = 0;
+  view_create_info.image = image;
+  view_create_info.viewType = view_type;
+  view_create_info.format = image_format;
+  view_create_info.components = {
+      VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+      VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY};
+  view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  view_create_info.subresourceRange.baseMipLevel = 0;
+  view_create_info.subresourceRange.levelCount = 1;
+  view_create_info.subresourceRange.baseArrayLayer = 0;
+  view_create_info.subresourceRange.layerCount = 1;
+
+  VkImageView view = VK_NULL_HANDLE;
+  VK_RETURN_IF_ERROR(symbols_.vkCreateImageView(device_, &view_create_info,
+                                                /*allocator=*/nullptr, &view));
+
+  return std::make_unique<Image>(device_, memory, image, view, symbols_);
+}
+
+absl::StatusOr<std::unique_ptr<Sampler>> Device::CreateSampler() {
+  VkSamplerCreateInfo create_info = {};
+  create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  create_info.pNext = nullptr;
+  create_info.flags = 0;
+  create_info.magFilter = VK_FILTER_NEAREST;
+  create_info.minFilter = VK_FILTER_NEAREST;
+  create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+  create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  create_info.mipLodBias = 0.0f;
+  create_info.anisotropyEnable = VK_FALSE;
+  create_info.maxAnisotropy = 0.0f;
+  create_info.compareEnable = VK_FALSE;
+  create_info.compareOp = VK_COMPARE_OP_NEVER;
+  create_info.minLod = 0.0f;
+  create_info.maxLod = 0.0f;
+  create_info.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+  create_info.unnormalizedCoordinates = VK_TRUE;
+
+  VkSampler sampler = VK_NULL_HANDLE;
+  VK_RETURN_IF_ERROR(symbols_.vkCreateSampler(
+      device_, &create_info, /*pAllocator=*/nullptr, &sampler));
+  return std::make_unique<Sampler>(device_, sampler, symbols_);
 }
 
 absl::StatusOr<std::unique_ptr<ShaderModule>> Device::CreateShaderModule(
@@ -140,6 +221,46 @@ absl::Status Device::AttachBufferToDescriptor(
     write.descriptorType = binding_info->descriptorType;
     write.pImageInfo = nullptr;
     write.pBufferInfo = &info;
+    write.pTexelBufferView = nullptr;
+  }
+
+  symbols_.vkUpdateDescriptorSets(device_, write_sets.size(), write_sets.data(),
+                                  /*descriptorCopyCount=*/0,
+                                  /*pDescriptorCopies=*/nullptr);
+  return absl::OkStatus();
+}
+
+absl::Status Device::AttachImageToDescriptor(
+    const ShaderModule &shader_module,
+    const std::unordered_map<VkDescriptorSetLayout, VkDescriptorSet>
+        &layout_set_map,
+    absl::Span<const Device::BoundImage> bound_images) {
+  std::vector<VkDescriptorImageInfo> image_infos(bound_images.size());
+  std::vector<VkWriteDescriptorSet> write_sets(bound_images.size());
+  for (int i = 0; i < bound_images.size(); ++i) {
+    const auto &descriptor = bound_images[i];
+    auto &info = image_infos[i];
+    auto &write = write_sets[i];
+
+    if (descriptor.sampler) info.sampler = descriptor.sampler->sampler();
+    info.imageView = descriptor.image->image_view();
+    info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    UVKC_ASSIGN_OR_RETURN(VkDescriptorSetLayout set_layout,
+                          shader_module.GetDescriptorSetLayout(descriptor.set));
+    UVKC_ASSIGN_OR_RETURN(const auto *binding_info,
+                          shader_module.GetDescriptorSetLayoutBinding(
+                              descriptor.set, descriptor.binding));
+
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.pNext = nullptr;
+    write.dstSet = layout_set_map.at(set_layout);
+    write.dstBinding = descriptor.binding;
+    write.dstArrayElement = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = binding_info->descriptorType;
+    write.pImageInfo = &info;
+    write.pBufferInfo = nullptr;
     write.pTexelBufferView = nullptr;
   }
 
@@ -229,6 +350,23 @@ absl::StatusOr<uint32_t> Device::SelectMemoryType(
       return i;
   }
   return absl::UnavailableError("cannot find memory type with required bits");
+}
+
+absl::StatusOr<VkDeviceMemory> Device::AllocateMemory(
+    VkMemoryRequirements memory_requirements,
+    VkMemoryPropertyFlags memory_flags) {
+  VkMemoryAllocateInfo allocate_info = {};
+  allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocate_info.pNext = nullptr;
+  allocate_info.allocationSize = memory_requirements.size;
+  UVKC_ASSIGN_OR_RETURN(
+      allocate_info.memoryTypeIndex,
+      SelectMemoryType(memory_requirements.memoryTypeBits, memory_flags));
+
+  VkDeviceMemory memory = VK_NULL_HANDLE;
+  VK_RETURN_IF_ERROR(symbols_.vkAllocateMemory(device_, &allocate_info,
+                                               /*pAlloator=*/nullptr, &memory));
+  return memory;
 }
 
 }  // namespace vulkan

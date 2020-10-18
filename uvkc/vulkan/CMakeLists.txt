@@ -94,6 +94,7 @@ uvkc_cc_library(
     ::command_buffer
     ::descriptor_pool
     ::dynamic_symbols
+    ::image
     ::pipeline
     ::shader_module
     ::timestamp_query_pool
@@ -115,6 +116,20 @@ uvkc_cc_library(
     ::dynamic_symbols
     ::status_util
     absl::statusor
+    Vulkan::Vulkan
+)
+
+uvkc_cc_library(
+  NAME
+    image
+  HDRS
+    "image.h"
+  SRCS
+    "image.cc"
+  COPTS
+    -DVK_NO_PROTOTYPES
+  DEPS
+    ::dynamic_symbols
     Vulkan::Vulkan
 )
 
