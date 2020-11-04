@@ -53,7 +53,6 @@ static ShaderCode kShaderCodeCases[] = {
     SHADER_TILE(4, 32),  SHADER_TILE(4, 64),
     SHADER_TILE(8, 32),  SHADER_TILE(8, 64),
     SHADER_TILE(16, 32), SHADER_TILE(16, 64),
-    SHADER_TILE(32, 32), SHADER_TILE(32, 64),
     // clang-format on
 };
 #undef SHADER_TILE
