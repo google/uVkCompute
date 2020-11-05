@@ -66,8 +66,6 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   int output_h = (input_h - filter_h) / stride_h + 1;
   int output_w = (input_w - filter_w) / stride_w + 1;
 
-  BM_CHECK_EQ(stride_h, 1) << "expected height stride to be 1";
-  BM_CHECK_EQ(stride_w, 1) << "expected widht stride to be 1";
   BM_CHECK_EQ(input_c % 4, 0) << "expected input channel to be a multiple of 4";
   BM_CHECK_EQ(output_w % 2, 0) << "expected output width to be a multiple of 2";
   BM_CHECK_EQ(output_c % 32, 0)
@@ -89,10 +87,12 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
       {5, Pipeline::SpecConstant::Type::u32, input_c},
       {6, Pipeline::SpecConstant::Type::u32, filter_h},
       {7, Pipeline::SpecConstant::Type::u32, filter_w},
+      {8, Pipeline::SpecConstant::Type::u32, stride_h},
+      {9, Pipeline::SpecConstant::Type::u32, stride_w},
   };
   BM_CHECK_OK_AND_ASSIGN(
       auto pipeline, device->CreatePipeline(*shader_module, "main",
-                                            absl::MakeSpan(spec_constant, 8)));
+                                            absl::MakeSpan(spec_constant, 10)));
 
   BM_CHECK_OK_AND_ASSIGN(auto descriptor_pool,
                          device->CreateDescriptorPool(*shader_module));
@@ -337,7 +337,8 @@ void RegisterVulkanBenchmarks(
 
   std::string workload_name =
       absl::StrCat("Input[1x", input_h, "x", input_w, "x", input_c, "]xFilter[",
-                   filter_h, "x", filter_w, "x", input_c, "x", output_c, "]");
+                   filter_h, "x", filter_w, "x", input_c, "x", output_c,
+                   "]/Stride[", stride_h, "x", stride_w, "]");
 
   for (const auto &shader : kShaderCodeCases) {
     std::string test_name =

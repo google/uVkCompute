@@ -9,7 +9,6 @@
 // - Wo must be a multiple of 2.
 // - Ci must be a multiple of 4.
 // - Co must be a multiple of 32.
-// - Stride is 1.
 // - No padding.
 // - No dilation.
 
@@ -27,6 +26,8 @@ layout(constant_id = 4) const uint IW = 1; // Input width
 layout(constant_id = 5) const uint IC = 1; // Input channel
 layout(constant_id = 6) const uint FH = 1; // Filter height
 layout(constant_id = 7) const uint FW = 1; // Filter width
+layout(constant_id = 8) const uint SH = 1; // Height stride
+layout(constant_id = 9) const uint SW = 1; // Width stride
 
 // Macros to be defined at compile time
 // WG_TILE_OW: tile size along the output width dimension for a workgroup
@@ -94,10 +95,12 @@ void main() {
           }
         }
 
+        // Load this input channel tile and perform dot product with filters
+        // for different output channels.
         [[unroll]] for (uint i = 0; i < IVC_OW; ++i) {
           [[unroll]] for (uint j = 0; j < IVC_OC; ++j) {
             uint ow = i + laneID.y * IVC_OW + wgBaseOW;
-            vec4 feature = Input.data[inputCoordToOffset(wgOH + fh, ow + fw, ic)];
+            vec4 feature = Input.data[inputCoordToOffset(wgOH * SH + fh, ow * SW + fw, ic)];
             O[i][j] += vec4(feature.x, feature.x, feature.x, feature.x) * F[0][j];
             O[i][j] += vec4(feature.y, feature.y, feature.y, feature.y) * F[1][j];
             O[i][j] += vec4(feature.z, feature.z, feature.z, feature.z) * F[2][j];
