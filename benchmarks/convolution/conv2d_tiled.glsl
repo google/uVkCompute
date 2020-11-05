@@ -98,9 +98,9 @@ void main() {
         // Load this input channel tile and perform dot product with filters
         // for different output channels.
         [[unroll]] for (uint i = 0; i < IVC_OW; ++i) {
+          uint ow = i + laneID.y * IVC_OW + wgBaseOW;
+          vec4 feature = Input.data[inputCoordToOffset(wgOH * SH + fh, ow * SW + fw, ic)];
           [[unroll]] for (uint j = 0; j < IVC_OC; ++j) {
-            uint ow = i + laneID.y * IVC_OW + wgBaseOW;
-            vec4 feature = Input.data[inputCoordToOffset(wgOH * SH + fh, ow * SW + fw, ic)];
             O[i][j] += vec4(feature.x, feature.x, feature.x, feature.x) * F[0][j];
             O[i][j] += vec4(feature.y, feature.y, feature.y, feature.y) * F[1][j];
             O[i][j] += vec4(feature.z, feature.z, feature.z, feature.z) * F[2][j];
