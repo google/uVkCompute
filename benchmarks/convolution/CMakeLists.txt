@@ -12,9 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(compute)
-add_subdirectory(convolution)
-add_subdirectory(matmul)
-add_subdirectory(memory)
-add_subdirectory(overhead)
-add_subdirectory(subgroup)
+uvkc_glsl_shader_permutation(
+  NAME
+    conv2d_tiled_shader
+  SRC
+    "conv2d_tiled.glsl"
+  PERMUTATION
+    "WG_TILE_OW=[2|4|8|16|32]"
+    "WG_TILE_OC=[32|64]"
+)
+
+uvkc_cc_binary(
+  NAME
+    conv2d
+  SRCS
+    "conv2d_main.cc"
+  DEPS
+    ::conv2d_tiled_shader
+    benchmark::benchmark
+    uvkc::benchmark::main
+    uvkc::benchmark::vulkan_buffer_util
+)
