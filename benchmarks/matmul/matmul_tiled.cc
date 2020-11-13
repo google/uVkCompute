@@ -290,7 +290,7 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                 acc += getSrc0(i, k) * getSrc1(k, j);
               }
               float gpuValue = fp16(dst_float_buffer[j + i * N]).toFloat();
-              BM_CHECK_FLOAT_EQ(gpuValue, acc, 0.5f)
+              BM_CHECK_FLOAT_EQ(gpuValue, acc, 1.f)
                   << "destination buffer element (" << i << "," << j << ")"
                   << " has incorrect value: expected to be " << acc
                   << " but found " << gpuValue;
