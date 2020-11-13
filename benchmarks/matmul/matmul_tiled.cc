@@ -32,42 +32,171 @@ static const char kBenchmarkName[] = "matmul_tiled";
 
 #include "matmul_tiled_shader_spirv_permutation.inc"
 
+enum class Precision {
+  fp16,
+  fp32,
+};
+
 struct ShaderCode {
   const char *name;       // Test case name
   const uint32_t *code;   // SPIR-V code
   size_t code_num_bytes;  // Number of bytes for SPIR-V code
   int tileM;
   int tileN;
+  Precision precision;
 };
 
-#define SHADER_TILE(A, B) \
-  {#A "x" #B, TILE_M_##A##_TILE_N_##B, sizeof(TILE_M_##A##_TILE_N_##B), A, B},
+#define SHADER_TILE_F32(A, B, C)                             \
+  {#A "x" #B "x" #C "xf32",                                  \
+   TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TYPE_vec4,         \
+   sizeof(TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TYPE_vec4), \
+   A,                                                        \
+   B,                                                        \
+   Precision::fp32},
+
+#define SHADER_TILE_F16(A, B, C)                                \
+  {#A "x" #B "x" #C "xf16",                                     \
+   TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TYPE_f16vec4,         \
+   sizeof(TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TYPE_f16vec4), \
+   A,                                                           \
+   B,                                                           \
+   Precision::fp16},
+
+#define SHADER_TILE(A, B, C) SHADER_TILE_F32(A, B, C) SHADER_TILE_F16(A, B, C)
 
 // clang-format off
 static ShaderCode kShaderCodeCases[] = {
-  SHADER_TILE(1, 64)
-  SHADER_TILE(2, 64)
-  SHADER_TILE(3, 64)
-  SHADER_TILE(4, 64)
-  SHADER_TILE(5, 64)
-  SHADER_TILE(6, 64)
-  SHADER_TILE(7, 64)
-  SHADER_TILE(8, 64)
-  SHADER_TILE(9, 64)
-  SHADER_TILE(10, 64)
-  SHADER_TILE(11, 64)
-  SHADER_TILE(12, 64)
-  SHADER_TILE(1, 128)
-  SHADER_TILE(2, 128)
-  SHADER_TILE(4, 128)
-  SHADER_TILE(8, 128)
+  SHADER_TILE(1, 64,  4)
+  SHADER_TILE(2, 64, 4)
+  SHADER_TILE(3, 64, 4)
+  SHADER_TILE(4, 64, 4)
+  SHADER_TILE(5, 64, 4)
+  SHADER_TILE(6, 64, 4)
+  SHADER_TILE(7, 64, 4)
+  SHADER_TILE(8, 64, 4)
+  SHADER_TILE(9, 64, 4)
+  SHADER_TILE(10, 64, 4)
+  SHADER_TILE(11, 64, 4)
+  SHADER_TILE(12, 64, 4)
+  SHADER_TILE(13, 64, 4)
+  SHADER_TILE(14, 64, 4)
+  SHADER_TILE(15, 64, 4)
+  SHADER_TILE(16, 64, 4)
+  SHADER_TILE(1, 128, 4)
+  SHADER_TILE(2, 128, 4)
+  SHADER_TILE(3, 128, 4)
+  SHADER_TILE(4, 128, 4)
+  SHADER_TILE(5, 128, 4)
+  SHADER_TILE(6, 128, 4)
+  SHADER_TILE(7, 128, 4)
+  SHADER_TILE(8, 128, 4)
+  SHADER_TILE(9, 128, 4)
+  SHADER_TILE(10, 128, 4)
+  SHADER_TILE(11, 128, 4)
+  SHADER_TILE(12, 128, 4)
+  SHADER_TILE(13, 128, 4)
+  SHADER_TILE(14, 128, 4)
+  SHADER_TILE(15, 128, 4)
+  SHADER_TILE(16, 128, 4)
+
+  SHADER_TILE_F16(1, 64, 8)
+  SHADER_TILE_F16(2, 64, 8)
+  SHADER_TILE_F16(3, 64, 8)
+  SHADER_TILE_F16(4, 64, 8)
+  SHADER_TILE_F16(5, 64, 8)
+  SHADER_TILE_F16(6, 64, 8)
+  SHADER_TILE_F16(7, 64, 8)
+  SHADER_TILE_F16(8, 64, 8)
+  SHADER_TILE_F16(9, 64, 8)
+  SHADER_TILE_F16(10, 64, 8)
+  SHADER_TILE_F16(11, 64, 8)
+  SHADER_TILE_F16(12, 64, 8)
+  SHADER_TILE_F16(13, 64, 8)
+  SHADER_TILE_F16(14, 64, 8)
+  SHADER_TILE_F16(15, 64, 8)
+  SHADER_TILE_F16(16, 64, 8)
+  SHADER_TILE_F16(1, 128, 8)
+  SHADER_TILE_F16(2, 128, 8)
+  SHADER_TILE_F16(3, 128, 8)
+  SHADER_TILE_F16(4, 128, 8)
+  SHADER_TILE_F16(5, 128, 8)
+  SHADER_TILE_F16(6, 128, 8)
+  SHADER_TILE_F16(7, 128, 8)
+  SHADER_TILE_F16(8, 128, 8)
+  SHADER_TILE_F16(9, 128, 8)
+  SHADER_TILE_F16(10, 128, 8)
+  SHADER_TILE_F16(11, 128, 8)
+  SHADER_TILE_F16(12, 128, 8)
+  SHADER_TILE_F16(13, 128, 8)
+  SHADER_TILE_F16(14, 128, 8)
+  SHADER_TILE_F16(15, 128, 8)
+  SHADER_TILE_F16(16, 128, 8)
 };
 // clang-format on
+
+static size_t size(Precision precision) {
+  if (precision == Precision::fp16) return 2;
+  if (precision == Precision::fp32) return 4;
+  assert(0 && "unkown precision");
+  return 0;
+}
+
+// Class to emulate half float on CPU.
+class fp16 {
+ public:
+  fp16(uint16_t v) { value = v; }
+  void fromFloat(const float &x) {
+    uint32_t asInt = *(uint32_t *)&x;
+    int sign = (asInt & 0x80000000) >> 31;
+    int exp = ((asInt & 0x7f800000) >> 23) - 127 + 15;
+    int mantissa = (asInt & 0x7FFFFF);
+    if (exp > 31) exp = 31;
+    if (exp < 0) exp = 0;
+    sign = sign << 15;
+    exp = exp << 10;
+    mantissa = mantissa >> (23 - 10);
+    asInt = sign | exp | mantissa;
+    value = asInt;
+  }
+  fp16(const float &x) { fromFloat(x); }
+  fp16 &operator=(const float &x) {
+    fromFloat(x);
+    return *this;
+  }
+  fp16 &operator=(const int &x) {
+    fromFloat((float)x);
+    return *this;
+  }
+  fp16 &operator+=(const fp16 &x) {
+    fromFloat(toFloat() + x.toFloat());
+    return *this;
+  }
+  float toFloat() const {
+    uint32_t asInt = value;
+    int sign = (asInt & 0x8000) >> 15;
+    int exp = ((asInt & 0x7c00) >> 10);
+    int mantissa = (asInt & 0x3FF);
+    sign = sign << 31;
+    if (exp > 0) {
+      exp = (exp + 127 - 15) << 23;
+      mantissa = mantissa << (23 - 10);
+    } else {
+      mantissa = 0;
+    }
+    asInt = sign | exp | mantissa;
+    return *(float *)&asInt;
+  }
+  operator float() { return toFloat(); }
+  uint16_t getValue() { return value; }
+
+ private:
+  uint16_t value;
+};
 
 static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    const ::uvkc::benchmark::LatencyMeasure *latency_measure,
                    const uint32_t *code, size_t code_num_words, int M, int N,
-                   int K, int tileM, int tileN) {
+                   int K, int tileM, int tileN, Precision precision) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
@@ -98,9 +227,9 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===-------------------------------------------------------------------===/
   // Create buffers
   //===-------------------------------------------------------------------===/
-  const size_t src0_size = M * K * sizeof(float);
-  const size_t src1_size = K * N * sizeof(float);
-  const size_t dst_size = M * N * sizeof(float);
+  const size_t src0_size = M * K * size(precision);
+  const size_t src1_size = K * N * size(precision);
+  const size_t dst_size = M * N * size(precision);
 
   BM_CHECK_OK_AND_ASSIGN(
       auto src0_buffer,
@@ -121,33 +250,59 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===-------------------------------------------------------------------===/
   // Set source buffer data
   //===-------------------------------------------------------------------===/
-  auto getSrc0 = [](int i, int j) {
-    float v = float(i % 17) * 0.5f + float(j % 13) * 0.75f;
+  auto getSrc0 = [K](int i, int j) {
+    float v =
+        ((float)((i + j * K) % 5) - 1.0f) /
+        2.0f;  // 1.f;// : 0.f;//float(i % 5) * 0.05f + float(j % 3) * 0.075f;
     return v;
   };
-  auto getSrc1 = [](int i, int j) {
-    float v = float(i % 21) * 0.25f + float(j % 7) * 1.75f;
+  auto getSrc1 = [N](int i, int j) {
+    float v = ((float)((i + j * N) % 7) - 1.0f) /
+              2.0f;  // 1.f;//float(i % 7) * 0.025f + float(j % 3) * 0.075f;
     return v;
   };
-  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
-      device, src0_buffer.get(), src0_size, [&](void *ptr, size_t num_bytes) {
-        float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        for (int i = 0; i < M; i++) {
-          for (int j = 0; j < K; j++) {
-            src_float_buffer[j + i * K] = getSrc0(i, j);
-          }
-        }
-      }));
 
-  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
-      device, src1_buffer.get(), src1_size, [&](void *ptr, size_t num_bytes) {
-        float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        for (int i = 0; i < K; i++) {
-          for (int j = 0; j < N; j++) {
-            src_float_buffer[j + i * N] = getSrc1(i, j);
+  if (precision == Precision::fp16) {
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, src0_buffer.get(), src0_size, [&](void *ptr, size_t num_bytes) {
+          uint16_t *src_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (int i = 0; i < M; i++) {
+            for (int j = 0; j < K; j++) {
+              src_float_buffer[j + i * K] = fp16(getSrc0(i, j)).getValue();
+            }
           }
-        }
-      }));
+        }));
+
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, src1_buffer.get(), src1_size, [&](void *ptr, size_t num_bytes) {
+          uint16_t *src_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (int i = 0; i < K; i++) {
+            for (int j = 0; j < N; j++) {
+              src_float_buffer[j + i * N] = fp16(getSrc1(i, j)).getValue();
+            }
+          }
+        }));
+  } else if (precision == Precision::fp32) {
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, src0_buffer.get(), src0_size, [&](void *ptr, size_t num_bytes) {
+          float *src_float_buffer = reinterpret_cast<float *>(ptr);
+          for (int i = 0; i < M; i++) {
+            for (int j = 0; j < K; j++) {
+              src_float_buffer[j + i * K] = getSrc0(i, j);
+            }
+          }
+        }));
+
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, src1_buffer.get(), src1_size, [&](void *ptr, size_t num_bytes) {
+          float *src_float_buffer = reinterpret_cast<float *>(ptr);
+          for (int i = 0; i < K; i++) {
+            for (int j = 0; j < N; j++) {
+              src_float_buffer[j + i * N] = getSrc1(i, j);
+            }
+          }
+        }));
+  }
 
   //===-------------------------------------------------------------------===/
   // Dispatch
@@ -188,22 +343,43 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Verify destination buffer data
   //===-------------------------------------------------------------------===/
 
-  BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
-      device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
-        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
-        for (int i = 0; i < M; i++) {
-          for (int j = 0; j < N; j++) {
-            float acc = 0.f;
-            for (int k = 0; k < K; k++) {
-              acc += getSrc0(i, k) * getSrc1(k, j);
+  if (precision == Precision::fp16) {
+    BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
+        device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
+          uint16_t *dst_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (int i = 0; i < M; i++) {
+            for (int j = 0; j < N; j++) {
+              float acc = 0.f;
+              for (int k = 0; k < K; k++) {
+                acc += getSrc0(i, k) * getSrc1(k, j);
+              }
+              float gpuValue = fp16(dst_float_buffer[j + i * N]).toFloat();
+              BM_CHECK_FLOAT_EQ(gpuValue, acc, 0.5f)
+                  << "destination buffer element (" << i << "," << j << ")"
+                  << " has incorrect value: expected to be " << acc
+                  << " but found " << gpuValue;
             }
-            BM_CHECK_EQ(dst_float_buffer[j + i * N], acc)
-                << "destination buffer element (" << i << "," << j << ")"
-                << " has incorrect value: expected to be " << acc
-                << " but found " << dst_float_buffer[j + i * N];
           }
-        }
-      }));
+        }));
+  } else if (precision == Precision::fp32) {
+    BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
+        device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
+          float *dst_float_buffer = reinterpret_cast<float *>(ptr);
+          for (int i = 0; i < M; i++) {
+            for (int j = 0; j < N; j++) {
+              float acc = 0.f;
+              for (int k = 0; k < K; k++) {
+                acc += getSrc0(i, k) * getSrc1(k, j);
+              }
+              float gpuValue = dst_float_buffer[j + i * N];
+              BM_CHECK_EQ(gpuValue, acc)
+                  << "destination buffer element (" << i << "," << j << ")"
+                  << " has incorrect value: expected to be " << acc
+                  << " but found " << gpuValue;
+            }
+          }
+        }));
+  }
 
   //===-------------------------------------------------------------------===/
   // Benchmarking
@@ -297,18 +473,21 @@ void RegisterVulkanBenchmarks(
   const int M = 1024;
   const int N = 1024;
   const int K = 1024;
-  for (const auto &shader : kShaderCodeCases) {
-    int paddM = (M + shader.tileM - 1) / shader.tileM * shader.tileM;
-    int paddN = (N + shader.tileN - 1) / shader.tileN * shader.tileN;
-    std::string test_name =
-        absl::StrCat(gpu_name, "/", shader.name, "/", M, "x", N, "x", K, "/",
-                     shader.tileM, "/", shader.tileN);
-    ::benchmark::RegisterBenchmark(test_name.c_str(), MatMul, device,
-                                   latency_measure, shader.code,
-                                   shader.code_num_bytes / sizeof(uint32_t),
-                                   paddM, paddN, K, shader.tileM, shader.tileN)
-        ->UseManualTime()
-        ->Unit(::benchmark::kMicrosecond);
+  for (Precision precision : {Precision::fp32, Precision::fp16}) {
+    for (const auto &shader : kShaderCodeCases) {
+      if (shader.precision != precision) continue;
+      int paddM = (M + shader.tileM - 1) / shader.tileM * shader.tileM;
+      int paddN = (N + shader.tileN - 1) / shader.tileN * shader.tileN;
+      std::string test_name =
+          absl::StrCat(gpu_name, "/", shader.name, "/", M, "x", N, "x", K, "/",
+                       shader.tileM, "/", shader.tileN);
+      ::benchmark::RegisterBenchmark(
+          test_name.c_str(), MatMul, device, latency_measure, shader.code,
+          shader.code_num_bytes / sizeof(uint32_t), paddM, paddN, K,
+          shader.tileM, shader.tileN, shader.precision)
+          ->UseManualTime()
+          ->Unit(::benchmark::kMicrosecond);
+    }
   }
 }
 
