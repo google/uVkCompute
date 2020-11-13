@@ -166,9 +166,9 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===-------------------------------------------------------------------===/
   // Create buffers
   //===-------------------------------------------------------------------===/
-  const size_t src0_size = M * K * size(precision);
-  const size_t src1_size = K * N * size(precision);
-  const size_t dst_size = M * N * size(precision);
+  const size_t src0_size = M * K * GetSize(precision);
+  const size_t src1_size = K * N * GetSize(precision);
+  const size_t dst_size = M * N * GetSize(precision);
 
   BM_CHECK_OK_AND_ASSIGN(
       auto src0_buffer,
@@ -190,14 +190,11 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Set source buffer data
   //===-------------------------------------------------------------------===/
   auto getSrc0 = [K](int i, int j) {
-    float v =
-        ((float)((i + j * K) % 5) - 1.0f) /
-        2.0f;  // 1.f;// : 0.f;//float(i % 5) * 0.05f + float(j % 3) * 0.075f;
+    float v = ((float)((i + j * K) % 5) - 1.0f) / 2.0f;
     return v;
   };
   auto getSrc1 = [N](int i, int j) {
-    float v = ((float)((i + j * N) % 7) - 1.0f) /
-              2.0f;  // 1.f;//float(i % 7) * 0.025f + float(j % 3) * 0.075f;
+    float v = ((float)((i + j * N) % 7) - 1.0f) / 2.0f;
     return v;
   };
 

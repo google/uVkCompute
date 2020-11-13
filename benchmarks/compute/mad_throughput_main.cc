@@ -75,9 +75,9 @@ static void Throughput(::benchmark::State &state,
   //===-------------------------------------------------------------------===/
   // Create buffers
   //===-------------------------------------------------------------------===/
-  const size_t src0_size = num_element * size(precision);
-  const size_t src1_size = num_element * size(precision);
-  const size_t dst_size = num_element * size(precision);
+  const size_t src0_size = num_element * GetSize(precision);
+  const size_t src1_size = num_element * GetSize(precision);
+  const size_t dst_size = num_element * GetSize(precision);
 
   BM_CHECK_OK_AND_ASSIGN(
       auto src0_buffer,

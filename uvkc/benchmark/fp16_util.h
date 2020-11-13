@@ -20,26 +20,14 @@ enum class Precision {
   fp32,
 };
 
-size_t size(Precision precision);
+size_t GetSize(Precision precision);
 
 // Class to emulate half float on CPU.
 class fp16 {
  public:
-  fp16(uint16_t v) { value = v; }
-  void fromFloat(const float &x) {
-    uint32_t asInt = *(uint32_t *)&x;
-    int sign = (asInt & 0x80000000) >> 31;
-    int exp = ((asInt & 0x7f800000) >> 23) - 127 + 15;
-    int mantissa = (asInt & 0x7FFFFF);
-    if (exp > 31) exp = 31;
-    if (exp < 0) exp = 0;
-    sign = sign << 15;
-    exp = exp << 10;
-    mantissa = mantissa >> (23 - 10);
-    asInt = sign | exp | mantissa;
-    value = asInt;
-  }
+  fp16(uint16_t v) : value_(v) {}
   fp16(const float &x) { fromFloat(x); }
+
   fp16 &operator=(const float &x) {
     fromFloat(x);
     return *this;
@@ -52,26 +40,14 @@ class fp16 {
     fromFloat(toFloat() + x.toFloat());
     return *this;
   }
-  float toFloat() const {
-    uint32_t asInt = value;
-    int sign = (asInt & 0x8000) >> 15;
-    int exp = ((asInt & 0x7c00) >> 10);
-    int mantissa = (asInt & 0x3FF);
-    sign = sign << 31;
-    if (exp > 0) {
-      exp = (exp + 127 - 15) << 23;
-      mantissa = mantissa << (23 - 10);
-    } else {
-      mantissa = 0;
-    }
-    asInt = sign | exp | mantissa;
-    return *(float *)&asInt;
-  }
   operator float() { return toFloat(); }
-  uint16_t getValue() { return value; }
+
+  void fromFloat(const float &x);
+  float toFloat() const;
+  uint16_t getValue() { return value_; }
 
  private:
-  uint16_t value;
+  uint16_t value_;
 };
 }  // namespace benchmark
 }  // namespace uvkc
