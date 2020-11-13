@@ -19,6 +19,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "benchmark/benchmark.h"
+#include "uvkc/benchmark/fp16_util.h"
 #include "uvkc/benchmark/main.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_buffer_util.h"
@@ -27,26 +28,30 @@
 #include "uvkc/vulkan/pipeline.h"
 
 using ::uvkc::benchmark::LatencyMeasureMode;
+using namespace uvkc::benchmark;
 
 static const char kBenchmarkName[] = "mad_throughput";
 
-static uint32_t kShaderCode[] = {
-#include "mad_throughput_shader_spirv_instance.inc"
-};
+#include "mad_throughput_shader_spirv_permutation.inc"
 
 struct ShaderCode {
   const char *name;       // Test case name
   const uint32_t *code;   // SPIR-V code
   size_t code_num_bytes;  // Number of bytes for SPIR-V code
+  Precision precision;
 };
 
-ShaderCode kShader = {"mad_throughput", kShaderCode, sizeof(kShaderCode)};
+ShaderCode kShaders[] = {
+    {"mad_throughput_f32", TYPE_vec4, sizeof(TYPE_vec4), Precision::fp32},
+    {"mad_throughput_f16", TYPE_f16vec4, sizeof(TYPE_f16vec4), Precision::fp16},
+};
 
 static void Throughput(::benchmark::State &state,
                        ::uvkc::vulkan::Device *device,
                        const ::uvkc::benchmark::LatencyMeasure *latency_measure,
                        const uint32_t *code, size_t code_num_words,
-                       size_t num_element, int loop_count) {
+                       size_t num_element, int loop_count,
+                       Precision precision) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
@@ -70,9 +75,9 @@ static void Throughput(::benchmark::State &state,
   //===-------------------------------------------------------------------===/
   // Create buffers
   //===-------------------------------------------------------------------===/
-  const size_t src0_size = num_element * sizeof(float);
-  const size_t src1_size = num_element * sizeof(float);
-  const size_t dst_size = num_element * sizeof(float);
+  const size_t src0_size = num_element * GetSize(precision);
+  const size_t src1_size = num_element * GetSize(precision);
+  const size_t dst_size = num_element * GetSize(precision);
 
   BM_CHECK_OK_AND_ASSIGN(
       auto src0_buffer,
@@ -101,22 +106,39 @@ static void Throughput(::benchmark::State &state,
     float v = float((i % 5) + 1) * 1.f;
     return v;
   };
-  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
-      device, src0_buffer.get(), src0_size, [&](void *ptr, size_t num_bytes) {
-        float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        for (size_t i = 0; i < num_element; i++) {
-          src_float_buffer[i] = getSrc0(i);
-        }
-      }));
+  if (precision == Precision::fp16) {
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, src0_buffer.get(), src0_size, [&](void *ptr, size_t num_bytes) {
+          uint16_t *src_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (size_t i = 0; i < num_element; i++) {
+            src_float_buffer[i] = fp16(getSrc0(i)).getValue();
+          }
+        }));
 
-  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
-      device, src1_buffer.get(), src1_size, [&](void *ptr, size_t num_bytes) {
-        float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        for (size_t i = 0; i < num_element; i++) {
-          src_float_buffer[i] = getSrc1(i);
-        }
-      }));
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, src1_buffer.get(), src1_size, [&](void *ptr, size_t num_bytes) {
+          uint16_t *src_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (size_t i = 0; i < num_element; i++) {
+            src_float_buffer[i] = fp16(getSrc1(i)).getValue();
+          }
+        }));
+  } else if (precision == Precision::fp32) {
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, src0_buffer.get(), src0_size, [&](void *ptr, size_t num_bytes) {
+          float *src_float_buffer = reinterpret_cast<float *>(ptr);
+          for (size_t i = 0; i < num_element; i++) {
+            src_float_buffer[i] = getSrc0(i);
+          }
+        }));
 
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, src1_buffer.get(), src1_size, [&](void *ptr, size_t num_bytes) {
+          float *src_float_buffer = reinterpret_cast<float *>(ptr);
+          for (size_t i = 0; i < num_element; i++) {
+            src_float_buffer[i] = getSrc1(i);
+          }
+        }));
+  }
   //===-------------------------------------------------------------------===/
   // Dispatch
   //===-------------------------------------------------------------------===/
@@ -156,17 +178,31 @@ static void Throughput(::benchmark::State &state,
   // Verify destination buffer data
   //===-------------------------------------------------------------------===/
 
-  BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
-      device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
-        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
-        for (size_t i = 0; i < num_element; i++) {
-          float limit = getSrc1(i) * (1.f / (1.f - getSrc0(i)));
-          BM_CHECK_FLOAT_EQ(dst_float_buffer[i], limit, 0.01f)
-              << "destination buffer element #" << i
-              << " has incorrect value: expected to be " << limit
-              << " but found " << dst_float_buffer[i];
-        }
-      }));
+  if (precision == Precision::fp16) {
+    BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
+        device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
+          uint16_t *dst_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (size_t i = 0; i < num_element; i++) {
+            float limit = getSrc1(i) * (1.f / (1.f - getSrc0(i)));
+            BM_CHECK_FLOAT_EQ(fp16(dst_float_buffer[i]).toFloat(), limit, 0.5f)
+                << "destination buffer element #" << i
+                << " has incorrect value: expected to be " << limit
+                << " but found " << fp16(dst_float_buffer[i]).toFloat();
+          }
+        }));
+  } else if (precision == Precision::fp32) {
+    BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
+        device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
+          float *dst_float_buffer = reinterpret_cast<float *>(ptr);
+          for (size_t i = 0; i < num_element; i++) {
+            float limit = getSrc1(i) * (1.f / (1.f - getSrc0(i)));
+            BM_CHECK_FLOAT_EQ(dst_float_buffer[i], limit, 0.01f)
+                << "destination buffer element #" << i
+                << " has incorrect value: expected to be " << limit
+                << " but found " << dst_float_buffer[i];
+          }
+        }));
+  }
 
   //===-------------------------------------------------------------------===/
   // Benchmarking
@@ -261,16 +297,19 @@ void RegisterVulkanBenchmarks(
 
   const size_t num_element = 1024 * 1024;
   const int min_loop_count = 100000;
-  const int max_loop_count = min_loop_count * 10;
-  for (int loop_count = min_loop_count; loop_count <= max_loop_count;
-       loop_count += min_loop_count) {
-    std::string test_name = absl::StrCat(gpu_name, "/", kShader.name, "/",
-                                         num_element, "/", loop_count);
-    ::benchmark::RegisterBenchmark(
-        test_name.c_str(), Throughput, device, latency_measure, kShader.code,
-        kShader.code_num_bytes / sizeof(uint32_t), num_element, loop_count)
-        ->UseManualTime()
-        ->Unit(::benchmark::kMicrosecond);
+  const int max_loop_count = min_loop_count * 2;
+  for (const auto &shader : kShaders) {
+    for (int loop_count = min_loop_count; loop_count <= max_loop_count;
+         loop_count += min_loop_count) {
+      std::string test_name = absl::StrCat(gpu_name, "/", shader.name, "/",
+                                           num_element, "/", loop_count);
+      ::benchmark::RegisterBenchmark(test_name.c_str(), Throughput, device,
+                                     latency_measure, shader.code,
+                                     shader.code_num_bytes / sizeof(uint32_t),
+                                     num_element, loop_count, shader.precision)
+          ->UseManualTime()
+          ->Unit(::benchmark::kMicrosecond);
+    }
   }
 }
 
