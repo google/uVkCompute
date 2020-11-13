@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-uvkc_glsl_shader_instance(
+uvkc_glsl_shader_permutation(
   NAME
     mad_throughput_shader
   SRC
     "mad_throughput.glsl"
+  PERMUTATION
+    "TYPE=[f16vec4|vec4]"
 )
 
 uvkc_cc_binary(
@@ -27,6 +29,7 @@ uvkc_cc_binary(
   DEPS
     ::mad_throughput_shader
     benchmark::benchmark
+    uvkc::benchmark::fp16_util
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
 )

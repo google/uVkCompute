@@ -19,6 +19,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "benchmark/benchmark.h"
+#include "uvkc/benchmark/fp16_util.h"
 #include "uvkc/benchmark/main.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_buffer_util.h"
@@ -28,14 +29,11 @@
 
 using ::uvkc::benchmark::LatencyMeasureMode;
 
+using namespace uvkc::benchmark;
+
 static const char kBenchmarkName[] = "matmul_tiled";
 
 #include "matmul_tiled_shader_spirv_permutation.inc"
-
-enum class Precision {
-  fp16,
-  fp32,
-};
 
 struct ShaderCode {
   const char *name;       // Test case name
@@ -133,65 +131,6 @@ static ShaderCode kShaderCodeCases[] = {
   SHADER_TILE_F16(16, 128, 8)
 };
 // clang-format on
-
-static size_t size(Precision precision) {
-  if (precision == Precision::fp16) return 2;
-  if (precision == Precision::fp32) return 4;
-  assert(0 && "unkown precision");
-  return 0;
-}
-
-// Class to emulate half float on CPU.
-class fp16 {
- public:
-  fp16(uint16_t v) { value = v; }
-  void fromFloat(const float &x) {
-    uint32_t asInt = *(uint32_t *)&x;
-    int sign = (asInt & 0x80000000) >> 31;
-    int exp = ((asInt & 0x7f800000) >> 23) - 127 + 15;
-    int mantissa = (asInt & 0x7FFFFF);
-    if (exp > 31) exp = 31;
-    if (exp < 0) exp = 0;
-    sign = sign << 15;
-    exp = exp << 10;
-    mantissa = mantissa >> (23 - 10);
-    asInt = sign | exp | mantissa;
-    value = asInt;
-  }
-  fp16(const float &x) { fromFloat(x); }
-  fp16 &operator=(const float &x) {
-    fromFloat(x);
-    return *this;
-  }
-  fp16 &operator=(const int &x) {
-    fromFloat((float)x);
-    return *this;
-  }
-  fp16 &operator+=(const fp16 &x) {
-    fromFloat(toFloat() + x.toFloat());
-    return *this;
-  }
-  float toFloat() const {
-    uint32_t asInt = value;
-    int sign = (asInt & 0x8000) >> 15;
-    int exp = ((asInt & 0x7c00) >> 10);
-    int mantissa = (asInt & 0x3FF);
-    sign = sign << 31;
-    if (exp > 0) {
-      exp = (exp + 127 - 15) << 23;
-      mantissa = mantissa << (23 - 10);
-    } else {
-      mantissa = 0;
-    }
-    asInt = sign | exp | mantissa;
-    return *(float *)&asInt;
-  }
-  operator float() { return toFloat(); }
-  uint16_t getValue() { return value; }
-
- private:
-  uint16_t value;
-};
 
 static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    const ::uvkc::benchmark::LatencyMeasure *latency_measure,

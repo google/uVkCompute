@@ -26,6 +26,15 @@ uvkc_cc_library(
 
 uvkc_cc_library(
   NAME
+    fp16_util
+  HDRS
+    "fp16_util.h"
+  SRCS
+    "fp16_util.cc"
+)
+
+uvkc_cc_library(
+  NAME
     main
   HDRS
     "main.h"

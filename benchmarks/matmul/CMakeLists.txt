@@ -32,6 +32,7 @@ uvkc_cc_binary(
   DEPS
     ::matmul_tiled_shader
     benchmark::benchmark
+    uvkc::benchmark::fp16_util
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
 )
