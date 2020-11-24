@@ -30,6 +30,7 @@
 #include "uvkc/vulkan/timestamp_query_pool.h"
 
 using ::uvkc::benchmark::LatencyMeasureMode;
+using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "subgroup_arthmetic";
 
@@ -83,10 +84,8 @@ static void CalculateSubgroupArithmetic(
   BM_CHECK_OK_AND_ASSIGN(auto shader_module,
                          device->CreateShaderModule(code, code_num_words));
 
-  ::uvkc::vulkan::Pipeline::SpecConstant spec_constant = {};
-  spec_constant.id = 0;
-  spec_constant.type = ::uvkc::vulkan::Pipeline::SpecConstant::Type::s32;
-  spec_constant.value.s32 = num_elements;
+  ::uvkc::vulkan::Pipeline::SpecConstant spec_constant = {
+      /*id=*/0, Pipeline::SpecConstant::Type::s32, num_elements};
   BM_CHECK_OK_AND_ASSIGN(
       auto pipeline, device->CreatePipeline(*shader_module, "main",
                                             absl::MakeSpan(&spec_constant, 1)));
@@ -141,13 +140,10 @@ static void CalculateSubgroupArithmetic(
   // Dispatch
   //===-------------------------------------------------------------------===/
 
-  std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers(2);
-  bound_buffers[0].buffer = src_buffer.get();
-  bound_buffers[0].set = 0;
-  bound_buffers[0].binding = 0;
-  bound_buffers[1].buffer = dst_buffer.get();
-  bound_buffers[1].set = 0;
-  bound_buffers[1].binding = 1;
+  std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers = {
+      {src_buffer.get(), /*set=*/0, /*binding=*/0},
+      {dst_buffer.get(), /*set=*/0, /*binding=*/1},
+  };
   BM_CHECK_OK(device->AttachBufferToDescriptor(
       *shader_module, layout_set_map,
       {bound_buffers.data(), bound_buffers.size()}));

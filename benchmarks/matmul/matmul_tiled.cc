@@ -27,9 +27,9 @@
 #include "uvkc/vulkan/device.h"
 #include "uvkc/vulkan/pipeline.h"
 
-using ::uvkc::benchmark::LatencyMeasureMode;
-
 using namespace uvkc::benchmark;
+using ::uvkc::benchmark::LatencyMeasureMode;
+using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "matmul_tiled";
 
@@ -143,16 +143,11 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   BM_CHECK_OK_AND_ASSIGN(auto shader_module,
                          device->CreateShaderModule(code, code_num_words));
 
-  ::uvkc::vulkan::Pipeline::SpecConstant spec_constant[3] = {};
-  spec_constant[0].id = 0;
-  spec_constant[0].type = ::uvkc::vulkan::Pipeline::SpecConstant::Type::s32;
-  spec_constant[0].value.s32 = M;
-  spec_constant[1].id = 1;
-  spec_constant[1].type = ::uvkc::vulkan::Pipeline::SpecConstant::Type::s32;
-  spec_constant[1].value.s32 = N;
-  spec_constant[2].id = 2;
-  spec_constant[2].type = ::uvkc::vulkan::Pipeline::SpecConstant::Type::s32;
-  spec_constant[2].value.s32 = K;
+  ::uvkc::vulkan::Pipeline::SpecConstant spec_constant[3] = {
+      {/*id=*/0, Pipeline::SpecConstant::Type::s32, M},
+      {/*id=*/1, Pipeline::SpecConstant::Type::s32, N},
+      {/*id=*/2, Pipeline::SpecConstant::Type::s32, K},
+  };
   BM_CHECK_OK_AND_ASSIGN(
       auto pipeline, device->CreatePipeline(*shader_module, "main",
                                             absl::MakeSpan(spec_constant, 3)));
@@ -244,16 +239,11 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Dispatch
   //===-------------------------------------------------------------------===/
 
-  std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers(3);
-  bound_buffers[0].buffer = src0_buffer.get();
-  bound_buffers[0].set = 0;
-  bound_buffers[0].binding = 0;
-  bound_buffers[1].buffer = src1_buffer.get();
-  bound_buffers[1].set = 0;
-  bound_buffers[1].binding = 1;
-  bound_buffers[2].buffer = dst_buffer.get();
-  bound_buffers[2].set = 0;
-  bound_buffers[2].binding = 2;
+  std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers = {
+      {src0_buffer.get(), /*set=*/0, /*binding=*/0},
+      {src1_buffer.get(), /*set=*/0, /*binding=*/1},
+      {dst_buffer.get(), /*set=*/0, /*binding=*/2},
+  };
   BM_CHECK_OK(device->AttachBufferToDescriptor(
       *shader_module, layout_set_map,
       {bound_buffers.data(), bound_buffers.size()}));

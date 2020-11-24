@@ -143,16 +143,11 @@ static void Throughput(::benchmark::State &state,
   // Dispatch
   //===-------------------------------------------------------------------===/
 
-  std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers(3);
-  bound_buffers[0].buffer = src0_buffer.get();
-  bound_buffers[0].set = 0;
-  bound_buffers[0].binding = 0;
-  bound_buffers[1].buffer = src1_buffer.get();
-  bound_buffers[1].set = 0;
-  bound_buffers[1].binding = 1;
-  bound_buffers[2].buffer = dst_buffer.get();
-  bound_buffers[2].set = 0;
-  bound_buffers[2].binding = 2;
+  std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers = {
+      {src0_buffer.get(), /*set=*/0, /*binding=*/0},
+      {src1_buffer.get(), /*set=*/0, /*binding=*/1},
+      {dst_buffer.get(), /*set=*/0, /*binding=*/2},
+  };
   BM_CHECK_OK(device->AttachBufferToDescriptor(
       *shader_module, layout_set_map,
       {bound_buffers.data(), bound_buffers.size()}));
