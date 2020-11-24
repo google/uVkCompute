@@ -50,4 +50,4 @@ modes are supported:
 
 ### `--benchmark_*`
 
-Various Goolge Benchmark control options. See `--help` for details.
+Various Google Benchmark control options. See `--help` for details.
