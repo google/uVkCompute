@@ -14,6 +14,61 @@
 
 uvkc_glsl_shader_permutation(
   NAME
+    atomic_reduce_loop_float_shader
+  SRC
+    "atomic_reduce_loop_float.glsl"
+  PERMUTATION
+    "BATCH_SIZE=[16|32|64|128|256|512]"
+)
+
+uvkc_glsl_shader_permutation(
+  NAME
+    atomic_reduce_loop_int_shader
+  SRC
+    "atomic_reduce_loop_int.glsl"
+  PERMUTATION
+    "BATCH_SIZE=[16|32|64|128|256|512]"
+)
+
+uvkc_glsl_shader_permutation(
+  NAME
+    atomic_reduce_subgroup_float_shader
+  SRC
+    "atomic_reduce_subgroup_float.glsl"
+  PERMUTATION
+    "BATCH_SIZE=[64|128|256|512]"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
+)
+
+uvkc_glsl_shader_permutation(
+  NAME
+    atomic_reduce_subgroup_int_shader
+  SRC
+    "atomic_reduce_subgroup_int.glsl"
+  PERMUTATION
+    "BATCH_SIZE=[64|128|256|512]"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
+)
+
+uvkc_cc_binary(
+  NAME
+    atomic_reduce
+  SRCS
+    "atomic_reduce_main.cc"
+  DEPS
+    ::atomic_reduce_loop_float_shader
+    ::atomic_reduce_loop_int_shader
+    ::atomic_reduce_subgroup_float_shader
+    ::atomic_reduce_subgroup_int_shader
+    benchmark::benchmark
+    uvkc::benchmark::main
+    uvkc::benchmark::vulkan_buffer_util
+)
+
+uvkc_glsl_shader_permutation(
+  NAME
     tree_reduce_loop_shader
   SRC
     "tree_reduce_loop.glsl"

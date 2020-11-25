@@ -28,15 +28,20 @@
 #include "uvkc/vulkan/pipeline.h"
 
 using ::uvkc::benchmark::LatencyMeasureMode;
-using ::uvkc::vulkan::Pipeline;
 
-static const char kBenchmarkName[] = "tree_reduce";
+static const char kBenchmarkName[] = "atomic_reduce";
 
-namespace tree_loop_shader {
-#include "tree_reduce_loop_shader_spirv_permutation.inc"
+namespace atomic_loop_float_shader {
+#include "atomic_reduce_loop_float_shader_spirv_permutation.inc"
 }
-namespace tree_subgroup_shader {
-#include "tree_reduce_subgroup_shader_spirv_permutation.inc"
+namespace atomic_subgroup_float_shader {
+#include "atomic_reduce_subgroup_float_shader_spirv_permutation.inc"
+}
+namespace atomic_loop_int_shader {
+#include "atomic_reduce_loop_int_shader_spirv_permutation.inc"
+}
+namespace atomic_subgroup_int_shader {
+#include "atomic_reduce_subgroup_int_shader_spirv_permutation.inc"
 }
 
 struct ShaderCode {
@@ -44,31 +49,48 @@ struct ShaderCode {
   const uint32_t *code;   // SPIR-V code
   size_t code_num_bytes;  // Number of bytes for SPIR-V code
   size_t batch_elements;  // Number of elements in each batch
+  bool is_integer;        // Whether the elements should be integers
 };
 
-#define SHADER_CASE(kind, size)                                     \
-  {                                                                 \
-#kind "/batch=" #size, tree_##kind##_shader::BATCH_SIZE_##size, \
-        sizeof(tree_##kind##_shader::BATCH_SIZE_##size), size       \
+#define FLOAT_SHADER_CASE(kind, size)                                        \
+  {                                                                          \
+#kind "/batch=" #size, atomic_##kind##_float_shader::BATCH_SIZE_##size,  \
+        sizeof(atomic_##kind##_float_shader::BATCH_SIZE_##size), size, false \
+  }
+
+#define INT_SHADER_CASE(kind, size)                                       \
+  {                                                                       \
+#kind "/batch=" #size, atomic_##kind##_int_shader::BATCH_SIZE_##size, \
+        sizeof(atomic_##kind##_int_shader::BATCH_SIZE_##size), size, true \
   }
 
 ShaderCode kShaders[] = {
-    SHADER_CASE(loop, 16),     SHADER_CASE(loop, 32),
-    SHADER_CASE(loop, 64),     SHADER_CASE(loop, 128),
-    SHADER_CASE(subgroup, 16), SHADER_CASE(subgroup, 32),
-    SHADER_CASE(subgroup, 64), SHADER_CASE(subgroup, 128),
+    FLOAT_SHADER_CASE(loop, 16),      FLOAT_SHADER_CASE(loop, 32),
+    FLOAT_SHADER_CASE(loop, 64),      FLOAT_SHADER_CASE(loop, 128),
+    FLOAT_SHADER_CASE(loop, 256),     FLOAT_SHADER_CASE(loop, 512),
+    FLOAT_SHADER_CASE(subgroup, 64),  FLOAT_SHADER_CASE(subgroup, 128),
+    FLOAT_SHADER_CASE(subgroup, 256), FLOAT_SHADER_CASE(subgroup, 512),
+
+    INT_SHADER_CASE(loop, 16),        INT_SHADER_CASE(loop, 32),
+    INT_SHADER_CASE(loop, 64),        INT_SHADER_CASE(loop, 128),
+    INT_SHADER_CASE(loop, 256),       INT_SHADER_CASE(loop, 512),
+    INT_SHADER_CASE(subgroup, 64),    INT_SHADER_CASE(subgroup, 128),
+    INT_SHADER_CASE(subgroup, 256),   INT_SHADER_CASE(subgroup, 512),
 };
 
 static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    const ::uvkc::benchmark::LatencyMeasure *latency_measure,
                    const uint32_t *code, size_t code_num_words,
-                   size_t total_elements, size_t batch_elements) {
+                   size_t total_elements, size_t batch_elements,
+                   bool is_integer) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
 
   BM_CHECK_OK_AND_ASSIGN(auto shader_module,
                          device->CreateShaderModule(code, code_num_words));
+  BM_CHECK_OK_AND_ASSIGN(auto pipeline,
+                         device->CreatePipeline(*shader_module, "main", {}));
   BM_CHECK_OK_AND_ASSIGN(auto descriptor_pool,
                          device->CreateDescriptorPool(*shader_module));
   BM_CHECK_OK_AND_ASSIGN(auto layout_set_map,
@@ -79,34 +101,61 @@ static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Create buffers
   //===-------------------------------------------------------------------===/
 
-  const size_t buffer_size = total_elements * sizeof(float);
-  // Create a buffer for performing reduction in place
+  const size_t src_buffer_size = total_elements * sizeof(float);
+  const size_t dst_buffer_size = sizeof(float);
+
   BM_CHECK_OK_AND_ASSIGN(
-      auto reduce_buffer,
-      device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer_size));
-  // Create a buffer for containing the original data so we can overwrite the
-  // reduction buffer
+      auto src_buffer,
+      device->CreateBuffer(
+          VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, src_buffer_size));
+  BM_CHECK_OK_AND_ASSIGN(
+      auto dst_buffer,
+      device->CreateBuffer(
+          VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dst_buffer_size));
+
+  // Create a buffer for zeroing the destination buffer.
   BM_CHECK_OK_AND_ASSIGN(
       auto data_buffer,
-      device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer_size));
+      device->CreateBuffer(
+          VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dst_buffer_size));
 
   //===-------------------------------------------------------------------===/
   // Set source buffer data
   //===-------------------------------------------------------------------===/
 
-  auto generate_data = [](size_t i) { return float(i % 9 - 4) * 0.5f; };
+  auto generate_float_data = [](size_t i) { return float(i % 9 - 4) * 0.5f; };
+  auto generate_int_data = [](size_t i) { return i % 13 - 7; };
 
   BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
-      device, data_buffer.get(), buffer_size, [&](void *ptr, size_t num_bytes) {
-        float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        for (size_t i = 0; i < num_bytes / sizeof(float); i++) {
-          src_float_buffer[i] = generate_data(i);
+      device, src_buffer.get(), src_buffer_size,
+      [&](void *ptr, size_t num_bytes) {
+        if (is_integer) {
+          int *src_int_buffer = reinterpret_cast<int *>(ptr);
+          for (size_t i = 0; i < num_bytes / sizeof(int); i++) {
+            src_int_buffer[i] = generate_int_data(i);
+          }
+        } else {
+          float *src_float_buffer = reinterpret_cast<float *>(ptr);
+          for (size_t i = 0; i < num_bytes / sizeof(float); i++) {
+            src_float_buffer[i] = generate_float_data(i);
+          }
+        }
+      }));
+
+  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+      device, data_buffer.get(), dst_buffer_size,
+      [&](void *ptr, size_t num_bytes) {
+        if (is_integer) {
+          int *dst_int_buffer = reinterpret_cast<int *>(ptr);
+          dst_int_buffer[0] = 0;
+        } else {
+          float *dst_float_buffer = reinterpret_cast<float *>(ptr);
+          dst_float_buffer[0] = 0.f;
         }
       }));
 
@@ -115,7 +164,8 @@ static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===-------------------------------------------------------------------===/
 
   std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers = {
-      {reduce_buffer.get(), /*set=*/0, /*binding=*/0},
+      {src_buffer.get(), /*set=*/0, /*binding=*/0},
+      {dst_buffer.get(), /*set=*/0, /*binding=*/1},
   };
   BM_CHECK_OK(device->AttachBufferToDescriptor(
       *shader_module, layout_set_map,
@@ -131,32 +181,17 @@ static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   bound_descriptor_sets[0].set = layout_set_map.at(descriptor_set_layout);
   BM_CHECK_OK_AND_ASSIGN(auto dispatch_cmdbuf, device->AllocateCommandBuffer());
 
+  // Zeroing the output buffer
   BM_CHECK_OK(dispatch_cmdbuf->Begin());
-  dispatch_cmdbuf->CopyBuffer(*data_buffer, 0, *reduce_buffer, 0, buffer_size);
+  dispatch_cmdbuf->CopyBuffer(*data_buffer, 0, *dst_buffer, 0, dst_buffer_size);
   BM_CHECK_OK(dispatch_cmdbuf->End());
   BM_CHECK_OK(device->QueueSubmitAndWait(*dispatch_cmdbuf));
   BM_CHECK_OK(dispatch_cmdbuf->Reset());
 
-  std::vector<std::unique_ptr<::uvkc::vulkan::Pipeline>> pipelines;
-
   BM_CHECK_OK(dispatch_cmdbuf->Begin());
-  for (int batch = total_elements / batch_elements; batch > 0;
-       batch /= batch_elements) {
-    Pipeline::SpecConstant spec_constant[] = {
-        {0, Pipeline::SpecConstant::Type::u32, batch},
-    };
-    BM_CHECK_OK_AND_ASSIGN(
-        auto pipeline,
-        device->CreatePipeline(*shader_module, "main",
-                               absl::MakeSpan(spec_constant, 1)));
-    dispatch_cmdbuf->BindPipelineAndDescriptorSets(
-        *pipeline,
-        {bound_descriptor_sets.data(), bound_descriptor_sets.size()});
-    dispatch_cmdbuf->Dispatch(batch, 1, 1);
-    if (batch > 1) dispatch_cmdbuf->DispatchBarrier();
-
-    pipelines.emplace_back(std::move(pipeline));
-  }
+  dispatch_cmdbuf->BindPipelineAndDescriptorSets(
+      *pipeline, {bound_descriptor_sets.data(), bound_descriptor_sets.size()});
+  dispatch_cmdbuf->Dispatch(total_elements / batch_elements, 1, 1);
   BM_CHECK_OK(dispatch_cmdbuf->End());
   BM_CHECK_OK(device->QueueSubmitAndWait(*dispatch_cmdbuf));
 
@@ -165,17 +200,29 @@ static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===-------------------------------------------------------------------===/
 
   BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
-      device, reduce_buffer.get(), buffer_size,
+      device, dst_buffer.get(), dst_buffer_size,
       [&](void *ptr, size_t num_bytes) {
-        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
-        float total = 0.f;
-        for (size_t i = 0; i < num_bytes / sizeof(float); i++) {
-          total += generate_data(i);
-        };
-        BM_CHECK_FLOAT_EQ(dst_float_buffer[0], total, 0.01f)
-            << "destination buffer element #0 has incorrect value: "
-               "expected to be "
-            << total << " but found " << dst_float_buffer[0];
+        if (is_integer) {
+          int *dst_int_buffer = reinterpret_cast<int *>(ptr);
+          int total = 0;
+          for (size_t i = 0; i < total_elements; i++) {
+            total += generate_int_data(i);
+          };
+          BM_CHECK_EQ(dst_int_buffer[0], total)
+              << "destination buffer element #0 has incorrect value: "
+                 "expected to be "
+              << total << " but found " << dst_int_buffer[0];
+        } else {
+          float *dst_float_buffer = reinterpret_cast<float *>(ptr);
+          float total = 0.f;
+          for (size_t i = 0; i < total_elements; i++) {
+            total += generate_float_data(i);
+          };
+          BM_CHECK_FLOAT_EQ(dst_float_buffer[0], total, 0.01f)
+              << "destination buffer element #0 has incorrect value: "
+                 "expected to be "
+              << total << " but found " << dst_float_buffer[0];
+        }
       }));
 
   //===-------------------------------------------------------------------===/
@@ -191,8 +238,9 @@ static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
 
   BM_CHECK_OK_AND_ASSIGN(auto cmdbuf, device->AllocateCommandBuffer());
   for (auto _ : state) {
+    // Zeroing the output buffer
     BM_CHECK_OK(cmdbuf->Begin());
-    cmdbuf->CopyBuffer(*data_buffer, 0, *reduce_buffer, 0, buffer_size);
+    cmdbuf->CopyBuffer(*data_buffer, 0, *dst_buffer, 0, dst_buffer_size);
     BM_CHECK_OK(cmdbuf->End());
     BM_CHECK_OK(device->QueueSubmitAndWait(*cmdbuf));
     BM_CHECK_OK(cmdbuf->Reset());
@@ -200,18 +248,15 @@ static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
     BM_CHECK_OK(cmdbuf->Begin());
     if (use_timestamp) cmdbuf->ResetQueryPool(*query_pool);
 
+    cmdbuf->BindPipelineAndDescriptorSets(
+        *pipeline,
+        {bound_descriptor_sets.data(), bound_descriptor_sets.size()});
+
     if (use_timestamp) {
       cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
     }
 
-    for (int batch = total_elements / batch_elements, i = 0; batch > 0;
-         batch /= batch_elements, ++i) {
-      cmdbuf->BindPipelineAndDescriptorSets(
-          *pipelines[i],
-          {bound_descriptor_sets.data(), bound_descriptor_sets.size()});
-      cmdbuf->Dispatch(batch, 1, 1);
-      if (batch > 1) cmdbuf->DispatchBarrier();
-    }
+    cmdbuf->Dispatch(total_elements / batch_elements, 1, 1);
 
     if (use_timestamp) {
       cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
@@ -246,7 +291,7 @@ static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
     BM_CHECK_OK(cmdbuf->Reset());
   }
 
-  state.SetBytesProcessed(state.iterations() * buffer_size);
+  state.SetBytesProcessed(state.iterations() * src_buffer_size);
   state.counters["FLOps"] =
       ::benchmark::Counter(total_elements,
                            ::benchmark::Counter::kIsIterationInvariant |
@@ -276,17 +321,15 @@ void RegisterVulkanBenchmarks(
     vulkan::Device *device, const LatencyMeasure *latency_measure) {
   const char *gpu_name = physical_device.v10_properties.deviceName;
 
+  const size_t total_elements = 1 << 22;  // 4M
   for (const auto &shader : kShaders) {
-    size_t total_elements = shader.batch_elements;
-    // Find the power of batch_elements that are larger than 1M.
-    while (total_elements < (1 << 20)) total_elements *= shader.batch_elements;
-
     std::string test_name =
-        absl::StrCat(gpu_name, "/#elements=", total_elements, "/", shader.name);
-    ::benchmark::RegisterBenchmark(test_name.c_str(), Reduce, device,
-                                   latency_measure, shader.code,
-                                   shader.code_num_bytes / sizeof(uint32_t),
-                                   total_elements, shader.batch_elements)
+        absl::StrCat(gpu_name, "/", total_elements,
+                     (shader.is_integer ? "xi32/" : "xf32/"), shader.name);
+    ::benchmark::RegisterBenchmark(
+        test_name.c_str(), Reduce, device, latency_measure, shader.code,
+        shader.code_num_bytes / sizeof(uint32_t), total_elements,
+        shader.batch_elements, shader.is_integer)
         ->UseManualTime()
         ->Unit(::benchmark::kMicrosecond);
   }
