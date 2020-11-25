@@ -74,6 +74,7 @@ uvkc_glsl_shader_permutation(
     "tree_reduce_loop.glsl"
   PERMUTATION
     "BATCH_SIZE=[16|32|64|128]"
+    "TYPE=[float|int]"
 )
 
 uvkc_glsl_shader_permutation(
@@ -83,6 +84,7 @@ uvkc_glsl_shader_permutation(
     "tree_reduce_subgroup.glsl"
   PERMUTATION
     "BATCH_SIZE=[16|32|64|128]"
+    "TYPE=[float|int]"
   GLSLC_ARGS
     "--target-env=vulkan1.1"
 )
