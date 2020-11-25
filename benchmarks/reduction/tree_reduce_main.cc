@@ -44,25 +44,40 @@ struct ShaderCode {
   const uint32_t *code;   // SPIR-V code
   size_t code_num_bytes;  // Number of bytes for SPIR-V code
   size_t batch_elements;  // Number of elements in each batch
+  bool is_integer;        // Whether the elements should be integers
 };
 
-#define SHADER_CASE(kind, size)                                     \
-  {                                                                 \
-#kind "/batch=" #size, tree_##kind##_shader::BATCH_SIZE_##size, \
-        sizeof(tree_##kind##_shader::BATCH_SIZE_##size), size       \
+#define FLOAT_SHADER_CASE(kind, size)                                       \
+  {                                                                         \
+#kind "/batch=" #size,                                                  \
+        tree_##kind##_shader::BATCH_SIZE_##size##_TYPE_float,               \
+        sizeof(tree_##kind##_shader::BATCH_SIZE_##size##_TYPE_float), size, \
+        false                                                               \
+  }
+
+#define INT_SHADER_CASE(kind, size)                                            \
+  {                                                                            \
+#kind "/batch=" #size, tree_##kind##_shader::BATCH_SIZE_##size##_TYPE_int, \
+        sizeof(tree_##kind##_shader::BATCH_SIZE_##size##_TYPE_int), size, true \
   }
 
 ShaderCode kShaders[] = {
-    SHADER_CASE(loop, 16),     SHADER_CASE(loop, 32),
-    SHADER_CASE(loop, 64),     SHADER_CASE(loop, 128),
-    SHADER_CASE(subgroup, 16), SHADER_CASE(subgroup, 32),
-    SHADER_CASE(subgroup, 64), SHADER_CASE(subgroup, 128),
+    FLOAT_SHADER_CASE(loop, 16),     FLOAT_SHADER_CASE(loop, 32),
+    FLOAT_SHADER_CASE(loop, 64),     FLOAT_SHADER_CASE(loop, 128),
+    FLOAT_SHADER_CASE(subgroup, 16), FLOAT_SHADER_CASE(subgroup, 32),
+    FLOAT_SHADER_CASE(subgroup, 64), FLOAT_SHADER_CASE(subgroup, 128),
+
+    INT_SHADER_CASE(loop, 16),       INT_SHADER_CASE(loop, 32),
+    INT_SHADER_CASE(loop, 64),       INT_SHADER_CASE(loop, 128),
+    INT_SHADER_CASE(subgroup, 16),   INT_SHADER_CASE(subgroup, 32),
+    INT_SHADER_CASE(subgroup, 64),   INT_SHADER_CASE(subgroup, 128),
 };
 
 static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    const ::uvkc::benchmark::LatencyMeasure *latency_measure,
                    const uint32_t *code, size_t code_num_words,
-                   size_t total_elements, size_t batch_elements) {
+                   size_t total_elements, size_t batch_elements,
+                   bool is_integer) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
@@ -100,13 +115,21 @@ static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Set source buffer data
   //===-------------------------------------------------------------------===/
 
-  auto generate_data = [](size_t i) { return float(i % 9 - 4) * 0.5f; };
+  auto generate_float_data = [](size_t i) { return float(i % 9 - 4) * 0.5f; };
+  auto generate_int_data = [](size_t i) { return i % 13 - 7; };
 
   BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
       device, data_buffer.get(), buffer_size, [&](void *ptr, size_t num_bytes) {
-        float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        for (size_t i = 0; i < num_bytes / sizeof(float); i++) {
-          src_float_buffer[i] = generate_data(i);
+        if (is_integer) {
+          int *src_int_buffer = reinterpret_cast<int *>(ptr);
+          for (size_t i = 0; i < num_bytes / sizeof(int); i++) {
+            src_int_buffer[i] = generate_int_data(i);
+          }
+        } else {
+          float *src_float_buffer = reinterpret_cast<float *>(ptr);
+          for (size_t i = 0; i < num_bytes / sizeof(float); i++) {
+            src_float_buffer[i] = generate_float_data(i);
+          }
         }
       }));
 
@@ -167,15 +190,27 @@ static void Reduce(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
       device, reduce_buffer.get(), buffer_size,
       [&](void *ptr, size_t num_bytes) {
-        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
-        float total = 0.f;
-        for (size_t i = 0; i < num_bytes / sizeof(float); i++) {
-          total += generate_data(i);
-        };
-        BM_CHECK_FLOAT_EQ(dst_float_buffer[0], total, 0.01f)
-            << "destination buffer element #0 has incorrect value: "
-               "expected to be "
-            << total << " but found " << dst_float_buffer[0];
+        if (is_integer) {
+          int *dst_int_buffer = reinterpret_cast<int *>(ptr);
+          int total = 0;
+          for (size_t i = 0; i < total_elements; i++) {
+            total += generate_int_data(i);
+          };
+          BM_CHECK_EQ(dst_int_buffer[0], total)
+              << "destination buffer element #0 has incorrect value: "
+                 "expected to be "
+              << total << " but found " << dst_int_buffer[0];
+        } else {
+          float *dst_float_buffer = reinterpret_cast<float *>(ptr);
+          float total = 0.f;
+          for (size_t i = 0; i < total_elements; i++) {
+            total += generate_float_data(i);
+          };
+          BM_CHECK_FLOAT_EQ(dst_float_buffer[0], total, 0.01f)
+              << "destination buffer element #0 has incorrect value: "
+                 "expected to be "
+              << total << " but found " << dst_float_buffer[0];
+        }
       }));
 
   //===-------------------------------------------------------------------===/
@@ -277,16 +312,17 @@ void RegisterVulkanBenchmarks(
   const char *gpu_name = physical_device.v10_properties.deviceName;
 
   for (const auto &shader : kShaders) {
-    size_t total_elements = shader.batch_elements;
     // Find the power of batch_elements that are larger than 1M.
+    size_t total_elements = shader.batch_elements;
     while (total_elements < (1 << 20)) total_elements *= shader.batch_elements;
 
     std::string test_name =
-        absl::StrCat(gpu_name, "/#elements=", total_elements, "/", shader.name);
-    ::benchmark::RegisterBenchmark(test_name.c_str(), Reduce, device,
-                                   latency_measure, shader.code,
-                                   shader.code_num_bytes / sizeof(uint32_t),
-                                   total_elements, shader.batch_elements)
+        absl::StrCat(gpu_name, "/", total_elements,
+                     (shader.is_integer ? "xi32/" : "xf32/"), shader.name);
+    ::benchmark::RegisterBenchmark(
+        test_name.c_str(), Reduce, device, latency_measure, shader.code,
+        shader.code_num_bytes / sizeof(uint32_t), total_elements,
+        shader.batch_elements, shader.is_integer)
         ->UseManualTime()
         ->Unit(::benchmark::kMicrosecond);
   }

@@ -3,7 +3,7 @@
 
 layout(local_size_x = 16, local_size_y = 1, local_size_z = 1) in;
 
-layout(set=0, binding=0) buffer DataBuffer { float data[]; } IOBuffer;
+layout(set=0, binding=0) buffer DataBuffer { TYPE data[]; } IOBuffer;
 
 layout(constant_id = 0) const uint stride = 1; // Stride between elements
 
@@ -18,7 +18,7 @@ void main() {
 
   if (laneID != 0) return;
 
-  float wgResult = IOBuffer.data[wgID];
+  TYPE wgResult = IOBuffer.data[wgID];
 
   [[unroll]] for (uint i = 1; i < BATCH_SIZE; ++i) {
     wgResult += IOBuffer.data[wgID + stride * i];
