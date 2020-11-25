@@ -101,3 +101,42 @@ uvkc_cc_binary(
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
 )
+
+uvkc_glsl_shader_instance(
+  NAME
+    one_workgroup_reduce_atomic_shader
+  SRC
+    "one_workgroup_reduce_atomic.glsl"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
+)
+
+uvkc_glsl_shader_instance(
+  NAME
+    one_workgroup_reduce_loop_shader
+  SRC
+    "one_workgroup_reduce_loop.glsl"
+)
+
+uvkc_glsl_shader_instance(
+  NAME
+    one_workgroup_reduce_subgroup_shader
+  SRC
+    "one_workgroup_reduce_subgroup.glsl"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
+)
+
+uvkc_cc_binary(
+  NAME
+    one_workgroup_reduce
+  SRCS
+    "one_workgroup_reduce_main.cc"
+  DEPS
+    ::one_workgroup_reduce_atomic_shader
+    ::one_workgroup_reduce_loop_shader
+    ::one_workgroup_reduce_subgroup_shader
+    benchmark::benchmark
+    uvkc::benchmark::main
+    uvkc::benchmark::vulkan_buffer_util
+)

@@ -20,3 +20,11 @@ Emulates floating-point atomics via integer ones.
 
 A workgroup uses either a single thread to loop over all elements or subgroup
 reduction operations involving all invocations.
+
+### `one_workgroup_reduce`
+
+Performs reduction using just one workgroup. The workgroup just contains one
+subgroup. This approach does not use any synchronization mechanisms.
+
+A subgroup uses either a single thread to loop over all elements or subgroup
+reduction operations involving all invocations.
