@@ -101,6 +101,10 @@ class CommandBuffer {
   // Records a dispatch command.
   void Dispatch(uint32_t x, uint32_t y, uint32_t z);
 
+  // Records a pipeline barrier that synchronizes shader read from a compute
+  // shader with shader write from a previous compute shader.
+  void DispatchBarrier();
+
  private:
   VkCommandBuffer command_buffer_;
 
