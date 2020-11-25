@@ -194,5 +194,17 @@ void CommandBuffer::Dispatch(uint32_t x, uint32_t y, uint32_t z) {
   symbols_.vkCmdDispatch(command_buffer_, x, y, z);
 }
 
+void CommandBuffer::DispatchBarrier() {
+  VkMemoryBarrier barrier = {};
+  barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+  symbols_.vkCmdPipelineBarrier(command_buffer_,
+                                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                                &barrier, 0, nullptr, 0, nullptr);
+}
+
 }  // namespace vulkan
 }  // namespace uvkc
