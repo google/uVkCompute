@@ -31,6 +31,7 @@ include(CMakeParseArguments)
 # * SRC: the GLSL source code for this shader instance
 # * PERMUTATION: an array of macros together with choices in the form of
 #                'FOO=[foo1|foo2]'
+# * GLSLC_ARGS: the list of additional arguments to glslc
 #
 # Permutation:
 #
@@ -60,7 +61,7 @@ function(uvkc_glsl_shader_permutation)
     _RULE
     ""
     "NAME;SRC"
-    "PERMUTATION"
+    "GLSLC_ARGS;PERMUTATION"
     ${ARGN}
   )
 
@@ -84,6 +85,11 @@ function(uvkc_glsl_shader_permutation)
     list(APPEND _PERMUTATION "\"${_MACRO}\"")
   endforeach()
 
+  set(_GLSLC_ARGS "")
+  foreach(_ARG IN LISTS _RULE_GLSLC_ARGS)
+    list(APPEND _GLSLC_ARGS "--glslc-arg=${_ARG}")
+  endforeach()
+
   # Add a custom command to invoke glslc to compile the GLSL source code
   add_custom_command(
     OUTPUT
@@ -95,6 +101,7 @@ function(uvkc_glsl_shader_permutation)
         -o "${_SPIRV_CODE}"
         --glslc "${Vulkan_GLSLC_EXECUTABLE}"
         ${_PERMUTATION}
+        ${_GLSLC_ARGS}
     WORKING_DIRECTORY
       "${CMAKE_CURRENT_BINARY_DIR}"
     MAIN_DEPENDENCY

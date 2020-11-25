@@ -55,6 +55,12 @@ def parse_arguments():
       type=str,
       help="Path to glslc executable")
   parser.add_argument(
+      "--glslc-arg",
+      metavar="<glslc-arg>",
+      type=str,
+      action="append",
+      help="Additional arguments to pass to glslc")
+  parser.add_argument(
       "--verbose",
       action="store_true",
       help="Print in verbose mode")
@@ -94,9 +100,13 @@ def main(args):
   # Base command for generating SPIR-V code
   base_code_command = [args.glslc, "-c", "-O", "-fshader-stage=compute",
                        "-mfmt=num", args.infile.name, "-o", "-"]
+  if args.glslc_arg:
+    base_code_command.extend(args.glslc_arg)
   # Base command for generating SPIR-V assembly
   base_asm_command = [args.glslc, "-S", "-O", "-fshader-stage=compute",
                       args.infile.name, "-o", "-"]
+  if args.glslc_arg:
+    base_asm_command.extend(args.glslc_arg)
   spirv_variables = []
 
   for case in generate_productions(args.define):
