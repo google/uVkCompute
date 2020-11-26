@@ -33,3 +33,26 @@ uvkc_cc_binary(
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
 )
+
+uvkc_glsl_shader_permutation(
+  NAME
+    depthwise_conv2d_tiled_shader
+  SRC
+    "depthwise_conv2d_tiled.glsl"
+  PERMUTATION
+    "WG_TILE_OH=[1|2|4|8]"
+    "WG_TILE_OW=[1|2|4|8]"
+    "WG_TILE_OC=[16|32|64]"
+)
+
+uvkc_cc_binary(
+  NAME
+    depthwise_conv2d
+  SRCS
+    "depthwise_conv2d_main.cc"
+  DEPS
+    ::depthwise_conv2d_tiled_shader
+    benchmark::benchmark
+    uvkc::benchmark::main
+    uvkc::benchmark::vulkan_buffer_util
+)

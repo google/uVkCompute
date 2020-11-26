@@ -29,31 +29,46 @@
 using ::uvkc::benchmark::LatencyMeasureMode;
 using ::uvkc::vulkan::Pipeline;
 
-static const char kBenchmarkName[] = "2d_convolution";
+static const char kBenchmarkName[] = "depthwise_2d_convolution";
 
-#include "conv2d_tiled_shader_spirv_permutation.inc"
+#include "depthwise_conv2d_tiled_shader_spirv_permutation.inc"
 
 struct ShaderCode {
   const char *name;       // Test case name
   const uint32_t *code;   // SPIR-V code
   size_t code_num_bytes;  // Number of bytes for SPIR-V code
+  int wg_tile_oh;         // Workgroup tile size along output height dimension
   int wg_tile_ow;         // Workgroup tile size along output width dimension
   int wg_tile_oc;         // Workgroup tile size along output channel dimension
 };
 
-#define SHADER_TILE(A, B)                             \
-  {                                                   \
-#A "x" #B, WG_TILE_OW_##A##_WG_TILE_OC_##B,       \
-        sizeof(WG_TILE_OW_##A##_WG_TILE_OC_##B), A, B \
+#define SHADER_TILE(OH, OW, OC)                                               \
+  {                                                                           \
+#OH "x" #OW "x" #OC, WG_TILE_OH_##OH##_WG_TILE_OW_##OW##_WG_TILE_OC_##OC, \
+        sizeof(WG_TILE_OH_##OH##_WG_TILE_OW_##OW##_WG_TILE_OC_##OC), OH, OW,  \
+        OC                                                                    \
   }
 
 static ShaderCode kShaderCodeCases[] = {
-    // clang-format off
-    SHADER_TILE(2, 32),  SHADER_TILE(2, 64),
-    SHADER_TILE(4, 32),  SHADER_TILE(4, 64),
-    SHADER_TILE(8, 32),  SHADER_TILE(8, 64),
-    SHADER_TILE(16, 32), SHADER_TILE(16, 64),
-    // clang-format on
+    SHADER_TILE(1, 1, 16),   SHADER_TILE(1, 1, 32),   SHADER_TILE(1, 1, 64),
+    SHADER_TILE(1, 2, 16),   SHADER_TILE(1, 2, 32),   SHADER_TILE(1, 2, 64),
+    SHADER_TILE(1, 4, 16),   SHADER_TILE(1, 4, 32),   SHADER_TILE(1, 4, 64),
+    SHADER_TILE(1, 8, 16),   SHADER_TILE(1, 8, 32),   SHADER_TILE(1, 8, 64),
+
+    SHADER_TILE(2, 1, 16),   SHADER_TILE(2, 1, 32),   SHADER_TILE(2, 1, 64),
+    SHADER_TILE(2, 2, 16),   SHADER_TILE(2, 2, 32),   SHADER_TILE(2, 2, 64),
+    SHADER_TILE(2, 4, 16),   SHADER_TILE(2, 4, 32),   SHADER_TILE(2, 4, 64),
+    SHADER_TILE(2, 8, 16),   SHADER_TILE(2, 8, 32),   SHADER_TILE(2, 8, 64),
+
+    SHADER_TILE(4, 1, 16),   SHADER_TILE(4, 1, 32),   SHADER_TILE(4, 1, 64),
+    SHADER_TILE(4, 2, 16),   SHADER_TILE(4, 2, 32),   SHADER_TILE(4, 2, 64),
+    SHADER_TILE(4, 4, 16),   SHADER_TILE(4, 4, 32),   SHADER_TILE(4, 4, 64),
+    SHADER_TILE(4, 8, 16),   SHADER_TILE(4, 8, 32),   SHADER_TILE(4, 8, 64),
+
+    SHADER_TILE(8, 1, 16),   SHADER_TILE(8, 1, 32),   SHADER_TILE(8, 1, 64),
+    SHADER_TILE(8, 2, 16),   SHADER_TILE(8, 2, 32),   SHADER_TILE(8, 2, 64),
+    SHADER_TILE(8, 4, 16),   SHADER_TILE(8, 4, 32),   SHADER_TILE(8, 4, 64),
+    SHADER_TILE(8, 8, 16),   SHADER_TILE(8, 8, 32),   SHADER_TILE(8, 8, 64),
 };
 #undef SHADER_TILE
 
@@ -63,32 +78,56 @@ struct DataScaleCase {
   int input_c;
   int filter_h;
   int filter_w;
-  int output_c;
   int stride_h;
   int stride_w;
 };
 
 static DataScaleCase kDataCases[] = {
-    {258, 258, 16, 3, 3, 64, 1, 1},
-    {513, 513, 16, 3, 3, 64, 2, 2},
+    {258, 258, 128, 3, 3, 1, 1},
+};
+
+struct WorkgroupSize {
+  int x;
+  int y;
+  int z;
+};
+
+static WorkgroupSize kWorkgroupSizeCases[] = {
+    // 16 invocations
+    {16, 1, 1},
+    {8, 2, 1},
+    {4, 4, 1},
+    {4, 2, 2},
+    // 32 invocations
+    {32, 1, 1},
+    {16, 2, 1},
+    {8, 4, 1},
+    {8, 2, 2},
+    {4, 4, 2},
 };
 
 static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    const ::uvkc::benchmark::LatencyMeasure *latency_measure,
                    const uint32_t *code, size_t code_num_words, int input_h,
                    int input_w, int input_c, int filter_h, int filter_w,
-                   int output_c, int stride_h, int stride_w, int wg_tile_ow,
+                   int stride_h, int stride_w, int wg_size_x, int wg_size_y,
+                   int wg_size_z, int wg_tile_oh, int wg_tile_ow,
                    int wg_tile_oc) {
   int output_h = (input_h - filter_h) / stride_h + 1;
   int output_w = (input_w - filter_w) / stride_w + 1;
+  int output_c = input_c;
 
+  BM_CHECK_EQ(output_h % wg_tile_oh, 0)
+      << "expected output height to be a multiple of workgroup tile size";
   BM_CHECK_EQ(output_w % wg_tile_ow, 0)
       << "expected output width to be a multiple of workgroup tile size";
   BM_CHECK_EQ(output_c % wg_tile_oc, 0)
       << "expected output channel to be a multiple of workgroup tile size";
-  BM_CHECK_EQ(wg_tile_ow % 2, 0)
+  BM_CHECK_EQ(wg_tile_oh % wg_size_z, 0)
       << "expected workgroup tile size to be a multiple of workgroup size";
-  BM_CHECK_EQ(wg_tile_oc % (8 * 4), 0)
+  BM_CHECK_EQ(wg_tile_ow % wg_size_y, 0)
+      << "expected workgroup tile size to be a multiple of workgroup size";
+  BM_CHECK_EQ(wg_tile_oc % (wg_size_x * 4), 0)
       << "expected workgroup tile size to be a multiple of workgroup size";
 
   //===---------------------------------------------------------------------===/
@@ -97,6 +136,11 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
 
   BM_CHECK_OK_AND_ASSIGN(auto shader_module,
                          device->CreateShaderModule(code, code_num_words));
+  BM_CHECK_OK_AND_ASSIGN(auto descriptor_pool,
+                         device->CreateDescriptorPool(*shader_module));
+  BM_CHECK_OK_AND_ASSIGN(auto layout_set_map,
+                         descriptor_pool->AllocateDescriptorSets(
+                             shader_module->descriptor_set_layouts()));
 
   Pipeline::SpecConstant spec_constant[] = {
       {0, Pipeline::SpecConstant::Type::u32, output_h},
@@ -104,28 +148,28 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
       {2, Pipeline::SpecConstant::Type::u32, output_c},
       {3, Pipeline::SpecConstant::Type::u32, input_h},
       {4, Pipeline::SpecConstant::Type::u32, input_w},
-      {5, Pipeline::SpecConstant::Type::u32, input_c},
-      {6, Pipeline::SpecConstant::Type::u32, filter_h},
-      {7, Pipeline::SpecConstant::Type::u32, filter_w},
-      {8, Pipeline::SpecConstant::Type::u32, stride_h},
-      {9, Pipeline::SpecConstant::Type::u32, stride_w},
+      {5, Pipeline::SpecConstant::Type::u32, filter_h},
+      {6, Pipeline::SpecConstant::Type::u32, filter_w},
+      {7, Pipeline::SpecConstant::Type::u32, stride_h},
+      {8, Pipeline::SpecConstant::Type::u32, stride_w},
+
+      {10, Pipeline::SpecConstant::Type::u32, wg_size_x},
+      {11, Pipeline::SpecConstant::Type::u32, wg_size_y},
+      {12, Pipeline::SpecConstant::Type::u32, wg_size_z},
+      {13, Pipeline::SpecConstant::Type::u32, wg_size_x},
+      {14, Pipeline::SpecConstant::Type::u32, wg_size_y},
+      {15, Pipeline::SpecConstant::Type::u32, wg_size_z},
   };
   BM_CHECK_OK_AND_ASSIGN(
       auto pipeline, device->CreatePipeline(*shader_module, "main",
-                                            absl::MakeSpan(spec_constant, 10)));
-
-  BM_CHECK_OK_AND_ASSIGN(auto descriptor_pool,
-                         device->CreateDescriptorPool(*shader_module));
-  BM_CHECK_OK_AND_ASSIGN(auto layout_set_map,
-                         descriptor_pool->AllocateDescriptorSets(
-                             shader_module->descriptor_set_layouts()));
+                                            absl::MakeSpan(spec_constant, 15)));
 
   //===---------------------------------------------------------------------===/
   // Create buffers
   //===---------------------------------------------------------------------===/
 
   size_t input_size = input_h * input_w * input_c * sizeof(float);
-  size_t filter_size = filter_h * filter_w * input_c * output_c * sizeof(float);
+  size_t filter_size = filter_h * filter_w * output_c * sizeof(float);
   size_t output_size = output_h * output_w * output_c * sizeof(float);
 
   BM_CHECK_OK_AND_ASSIGN(
@@ -151,9 +195,8 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   auto generateInputData = [](int h, int w, int c) {
     return float(h % 17) * 0.5f + float(w % 13) * 0.5f + float(c % 9) * 0.25f;
   };
-  auto generateFilterData = [](int h, int w, int ic, int oc) {
-    return float(h % 5) * 0.25f + float(w % 7) * 0.25f +
-           float(ic % 21) * 0.25f + float(oc % 13) * 0.5f;
+  auto generateFilterData = [](int h, int w, int oc) {
+    return float(h % 5) * 0.25f + float(w % 7) * 0.25f + float(oc % 13) * 0.5f;
   };
 
   BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
@@ -175,12 +218,9 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
         float *src_float_buffer = reinterpret_cast<float *>(ptr);
         for (int fh = 0; fh < filter_h; ++fh) {
           for (int fw = 0; fw < filter_w; ++fw) {
-            for (int ic = 0; ic < input_c; ++ic) {
-              for (int oc = 0; oc < output_c; ++oc) {
-                int offset = fh * filter_w * input_c * output_c +
-                             fw * input_c * output_c + ic * output_c + oc;
-                src_float_buffer[offset] = generateFilterData(fh, fw, ic, oc);
-              }
+            for (int oc = 0; oc < output_c; ++oc) {
+              int offset = fh * filter_w * output_c + fw * output_c + oc;
+              src_float_buffer[offset] = generateFilterData(fh, fw, oc);
             }
           }
         }
@@ -214,7 +254,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   dispatch_cmdbuf->BindPipelineAndDescriptorSets(
       *pipeline, {bound_descriptor_sets.data(), bound_descriptor_sets.size()});
   dispatch_cmdbuf->Dispatch(output_c / wg_tile_oc, output_w / wg_tile_ow,
-                            output_h);
+                            output_h / wg_tile_oh);
   BM_CHECK_OK(dispatch_cmdbuf->End());
   BM_CHECK_OK(device->QueueSubmitAndWait(*dispatch_cmdbuf));
 
@@ -232,13 +272,11 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
               float expected_value = 0.f;
               for (int fh = 0; fh < filter_h; ++fh) {
                 for (int fw = 0; fw < filter_w; ++fw) {
-                  for (int ic = 0; ic < input_c; ++ic) {
-                    int ih = oh * stride_h + fh;
-                    int iw = ow * stride_w + fw;
-                    float input = generateInputData(ih, iw, ic);
-                    float filter = generateFilterData(fh, fw, ic, oc);
-                    expected_value += input * filter;
-                  }
+                  int ih = oh * stride_h + fh;
+                  int iw = ow * stride_w + fw;
+                  float input = generateInputData(ih, iw, oc);
+                  float filter = generateFilterData(fh, fw, oc);
+                  expected_value += input * filter;
                 }
               }
 
@@ -277,7 +315,8 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
       cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
     }
 
-    cmdbuf->Dispatch(output_c / wg_tile_oc, output_w / wg_tile_ow, output_h);
+    cmdbuf->Dispatch(output_c / wg_tile_oc, output_w / wg_tile_ow,
+                     output_h / wg_tile_oh);
 
     if (use_timestamp) {
       cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
@@ -316,7 +355,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
       // For each output element:
       double(output_h) * double(output_w) * double(output_c) *
       // Convolution performs dot product of the filter's size.
-      double(filter_h) * double(filter_w) * double(input_c) * 2;
+      double(filter_h) * double(filter_w) * 2;
   state.counters["FLOps"] =
       ::benchmark::Counter(num_operations,
                            ::benchmark::Counter::kIsIterationInvariant |
@@ -349,23 +388,39 @@ void RegisterVulkanBenchmarks(
   for (const auto &data : kDataCases) {
     std::string workload_name = absl::StrCat(
         "Input[1x", data.input_h, "x", data.input_w, "x", data.input_c,
-        "]xFilter[", data.filter_h, "x", data.filter_w, "x", data.input_c, "x",
-        data.output_c, "]/Stride[", data.stride_h, "x", data.stride_w, "]");
+        "]xFilter[", data.filter_h, "x", data.filter_w, "x1x", data.input_c,
+        "]/Stride[", data.stride_h, "x", data.stride_w, "]");
 
     for (const auto &shader : kShaderCodeCases) {
-      if (data.output_c % shader.wg_tile_oc != 0) continue;
+      // Make sure the output image is tilable to integral number of workgroups.
+      if (data.input_c % shader.wg_tile_oc != 0) continue;
       int output_w = (data.input_w - data.filter_w) / data.stride_w + 1;
       if (output_w % shader.wg_tile_ow != 0) continue;
+      int output_h = (data.input_h - data.filter_h) / data.stride_h + 1;
+      if (output_h % shader.wg_tile_oh != 0) continue;
 
-      std::string test_name = absl::StrCat(gpu_name, "/", workload_name,
-                                           "/Tile[", shader.name, "]");
-      ::benchmark::RegisterBenchmark(
-          test_name.c_str(), Conv2D, device, latency_measure, shader.code,
-          shader.code_num_bytes / sizeof(uint32_t), data.input_h, data.input_w,
-          data.input_c, data.filter_h, data.filter_w, data.output_c,
-          data.stride_h, data.stride_w, shader.wg_tile_ow, shader.wg_tile_oc)
-          ->UseManualTime()
-          ->Unit(::benchmark::kMicrosecond);
+      for (const auto &wg_size : kWorkgroupSizeCases) {
+        // Make sure the ranges for each workgroup is tilable to integral number
+        // of invocations.
+        if (shader.wg_tile_oh % wg_size.z != 0) continue;
+        if (shader.wg_tile_ow % wg_size.y != 0) continue;
+        if (shader.wg_tile_oc % (wg_size.x * 4) != 0) continue;
+
+        std::string wg_size_name =
+            absl::StrCat(wg_size.x, "x", wg_size.y, "x", wg_size.z);
+        std::string test_name =
+            absl::StrCat(gpu_name, "/", workload_name, "/Tile[", shader.name,
+                         "]/WGSize[", wg_size_name, "]");
+
+        ::benchmark::RegisterBenchmark(
+            test_name.c_str(), Conv2D, device, latency_measure, shader.code,
+            shader.code_num_bytes / sizeof(uint32_t), data.input_h,
+            data.input_w, data.input_c, data.filter_h, data.filter_w,
+            data.stride_h, data.stride_w, wg_size.x, wg_size.y, wg_size.z,
+            shader.wg_tile_oh, shader.wg_tile_ow, shader.wg_tile_oc)
+            ->UseManualTime()
+            ->Unit(::benchmark::kMicrosecond);
+      }
     }
   }
 }
