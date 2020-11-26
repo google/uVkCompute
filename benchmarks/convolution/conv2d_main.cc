@@ -29,7 +29,7 @@
 using ::uvkc::benchmark::LatencyMeasureMode;
 using ::uvkc::vulkan::Pipeline;
 
-static const char kBenchmarkName[] = "convolution";
+static const char kBenchmarkName[] = "2d_convolution";
 
 #include "conv2d_tiled_shader_spirv_permutation.inc"
 
@@ -56,6 +56,22 @@ static ShaderCode kShaderCodeCases[] = {
     // clang-format on
 };
 #undef SHADER_TILE
+
+struct DataScaleCase {
+  int input_h;
+  int input_w;
+  int input_c;
+  int filter_h;
+  int filter_w;
+  int output_c;
+  int stride_h;
+  int stride_w;
+};
+
+static DataScaleCase kDataCases[] = {
+    {258, 258, 16, 3, 3, 64, 1, 1},
+    {513, 513, 16, 3, 3, 64, 2, 2},
+};
 
 static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    const ::uvkc::benchmark::LatencyMeasure *latency_measure,
@@ -326,30 +342,27 @@ void RegisterVulkanBenchmarks(
     vulkan::Device *device, const LatencyMeasure *latency_measure) {
   const char *gpu_name = physical_device.v10_properties.deviceName;
 
-  const int input_h = 256;
-  const int input_w = 256;
-  const int input_c = 16;
-  const int filter_h = 3;
-  const int filter_w = 3;
-  const int output_c = 64;
-  const int stride_h = 1;
-  const int stride_w = 1;
+  for (const auto &data : kDataCases) {
+    std::string workload_name = absl::StrCat(
+        "Input[1x", data.input_h, "x", data.input_w, "x", data.input_c,
+        "]xFilter[", data.filter_h, "x", data.filter_w, "x", data.input_c, "x",
+        data.output_c, "]/Stride[", data.stride_h, "x", data.stride_w, "]");
 
-  std::string workload_name =
-      absl::StrCat("Input[1x", input_h, "x", input_w, "x", input_c, "]xFilter[",
-                   filter_h, "x", filter_w, "x", input_c, "x", output_c,
-                   "]/Stride[", stride_h, "x", stride_w, "]");
+    for (const auto &shader : kShaderCodeCases) {
+      if (data.output_c % shader.wg_tile_oc != 0) continue;
+      int output_w = (data.input_w - data.filter_w) / data.stride_w + 1;
+      if (output_w % shader.wg_tile_ow != 0) continue;
 
-  for (const auto &shader : kShaderCodeCases) {
-    std::string test_name =
-        absl::StrCat(gpu_name, "/", workload_name, "/Tile[", shader.name, "]");
-    ::benchmark::RegisterBenchmark(
-        test_name.c_str(), Conv2D, device, latency_measure, shader.code,
-        shader.code_num_bytes / sizeof(uint32_t), input_h, input_w, input_c,
-        filter_h, filter_w, output_c, stride_h, stride_w, shader.wg_tile_ow,
-        shader.wg_tile_oc)
-        ->UseManualTime()
-        ->Unit(::benchmark::kMicrosecond);
+      std::string test_name = absl::StrCat(gpu_name, "/", workload_name,
+                                           "/Tile[", shader.name, "]");
+      ::benchmark::RegisterBenchmark(
+          test_name.c_str(), Conv2D, device, latency_measure, shader.code,
+          shader.code_num_bytes / sizeof(uint32_t), data.input_h, data.input_w,
+          data.input_c, data.filter_h, data.filter_w, data.output_c,
+          data.stride_h, data.stride_w, shader.wg_tile_ow, shader.wg_tile_oc)
+          ->UseManualTime()
+          ->Unit(::benchmark::kMicrosecond);
+    }
   }
 }
 
