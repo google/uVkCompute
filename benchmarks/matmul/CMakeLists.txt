@@ -28,7 +28,7 @@ uvkc_cc_binary(
   NAME
     matmul_tiled
   SRCS
-    "matmul_tiled.cc"
+    "matmul_tiled_main.cc"
   DEPS
     ::matmul_tiled_shader
     benchmark::benchmark
