@@ -18,8 +18,10 @@ uvkc_glsl_shader_permutation(
   SRC
     "conv2d_tiled.glsl"
   PERMUTATION
-    "WG_TILE_OW=[2|4|8|16|32]"
-    "WG_TILE_OC=[32|64]"
+    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}|{32,1,1}|{16,2,1}|{8,4,1}|{8,2,2}|{4,4,2}]"
+    "IVC_OH=[1|2|4|8]"
+    "IVC_OW=[1|2|4|8]"
+    "IVC_OC=[1|2|4]"
 )
 
 uvkc_cc_binary(

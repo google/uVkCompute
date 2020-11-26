@@ -6,13 +6,22 @@
 // - Input: NHiWiCi format
 // - Filter: HfWfCiCo format
 // - N is 1.
-// - Wo must be a multiple of 2.
+// - Ho must be a multiple of gl_WorkGroupSize.z.
+// - Wo must be a multiple of gl_WorkGroupSize.y.
+// - Co must be a multiple of (gl_WorkGroupSize.x * 4).
 // - Ci must be a multiple of 4.
-// - Co must be a multiple of 32.
 // - No padding.
 // - No dilation.
 
-layout(local_size_x = 8, local_size_y = 2, local_size_z = 1) in;
+// Macros to be defined at compile time
+// WG_X: gl_WorkGroupSize.x
+// WG_Y: gl_WorkGroupSize.y
+// WG_Z: gl_WorkGroupSize.z
+// IVC_OH: how many indices one invocation processes along output height
+// IVC_OW: how many indices one invocation processes along output width
+// IVC_OC: how many vectors one invocation processes along output channel
+
+layout(local_size_x = WG_X, local_size_y = WG_Y, local_size_z = WG_Z) in;
 
 layout(set=0, binding=0) buffer InputBuffer   { vec4 data[]; } Input;
 layout(set=0, binding=1) buffer FilterBufffer { vec4 data[]; } Filter;
@@ -29,25 +38,20 @@ layout(constant_id = 7) const uint FW = 1; // Filter width
 layout(constant_id = 8) const uint SH = 1; // Height stride
 layout(constant_id = 9) const uint SW = 1; // Width stride
 
-// Macros to be defined at compile time
-// WG_TILE_OW: tile size along the output width dimension for a workgroup
-// WG_TILE_OC: tile size along the output channel dimension for a workgroup
+const uint WG_TILE_OH = WG_Z * IVC_OH;
+const uint WG_TILE_OW = WG_Y * IVC_OW;
+const uint WG_TILE_OC = WG_X * IVC_OC * 4;
 
 // Workgroup count:
 // - x: OC / WG_TILE_OC
 // - y: OW / WG_TILE_OW
-// - z: OH
-// So each workgroup computes (WG_TILE_OW * WG_TILE_OC) output elements.
-
-// Each workgroup just contains one subgroup.
-// Each invocation in the workgroup processes:
-// - x: WG_TILE_OC / (gl_WorkGroupSize.x * 4)
-// - y: WG_TILE_OW / gl_WorkGroupSize.y
+// - z: OH / WG_TILE_OH
+// So each workgroup computes (WG_TILE_OH * WG_TILE_OW * WG_TILE_OC) output
+// elements.
+// Each invocation in the workgroup processes (IVC_OH * IVC_OW * IVC_OC * 4)
+// output elements.
 // Adjecent invocations process elements along x dimension cyclically;
 // each handle 4 consecutive elements.
-
-const uint IVC_OC = WG_TILE_OC / (/*gl_WorkGroupSize.x=*/8 * 4);
-const uint IVC_OW = WG_TILE_OW / /*gl_WorkgroupSize.y=*/2;
 
 uint inputCoordToOffset(uint h, uint w, uint c) {
   return (h  * IW * IC + w * IC + c) / 4;
@@ -62,24 +66,26 @@ uint outputCoordToOffset(uint h, uint w, uint c) {
 }
 
 void main() {
-  // Each invocation calculates (IVC_OW * IVC_OC * 4) output elements.
-  vec4 O[IVC_OW][IVC_OC];
+  // Each invocation calculates (IVC_OH * IVC_OW * IVC_OC * 4) output elements.
+  vec4 O[IVC_OH][IVC_OW][IVC_OC];
 
   // Use registers to keep the filter for this tile to increase data reuse.
   vec4 F[4][IVC_OC];
 
   uvec3 wgID = gl_WorkGroupID;
-  uvec2 laneID = gl_LocalInvocationID.xy;
-  uvec2 laneCount = gl_WorkGroupSize.xy;
+  uvec3 threadID = gl_LocalInvocationID;
+  uvec3 threadCount = gl_WorkGroupSize;
 
   uint wgBaseOC = wgID.x * WG_TILE_OC; // Workgroup base output channel
   uint wgBaseOW = wgID.y * WG_TILE_OW; // Workgroup base output width
-  uint wgOH = wgID.z;                  // Workgroup output height
+  uint wgBaseOH = wgID.z * WG_TILE_OH; // Workgroup base output height
 
   // Initialize the output for this batch to zero.
-  [[unroll]] for (uint i = 0; i < IVC_OW; ++i) {
-    [[unroll]] for (uint j = 0; j < IVC_OC; ++j) {
-      O[i][j] = vec4(0.f, 0.f, 0.f, 0.f);
+  [[unroll]] for (uint i = 0; i < IVC_OH; ++i) {
+    [[unroll]] for (uint j = 0; j < IVC_OW; ++j) {
+      [[unroll]] for (uint k = 0; k < IVC_OC; ++k) {
+        O[i][j][k] = vec4(0.f, 0.f, 0.f, 0.f);
+      }
     }
   }
 
@@ -90,21 +96,24 @@ void main() {
         // Load the filter for this input channel tile.
         [[unroll]] for (uint i = 0; i < 4; ++i) {
           [[unroll]] for (uint j = 0; j < IVC_OC; ++j) {
-            uint oc = (laneID.x + laneCount.x * j) * 4 + wgBaseOC;
+            uint oc = (threadID.x + threadCount.x * j) * 4 + wgBaseOC;
             F[i][j] = Filter.data[filterCoordToOffset(fh, fw, ic + i, oc)];
           }
         }
 
         // Load this input channel tile and perform dot product with filters
-        // for different output channels.
-        [[unroll]] for (uint i = 0; i < IVC_OW; ++i) {
-          uint ow = i + laneID.y * IVC_OW + wgBaseOW;
-          vec4 feature = Input.data[inputCoordToOffset(wgOH * SH + fh, ow * SW + fw, ic)];
-          [[unroll]] for (uint j = 0; j < IVC_OC; ++j) {
-            O[i][j] += vec4(feature.x, feature.x, feature.x, feature.x) * F[0][j];
-            O[i][j] += vec4(feature.y, feature.y, feature.y, feature.y) * F[1][j];
-            O[i][j] += vec4(feature.z, feature.z, feature.z, feature.z) * F[2][j];
-            O[i][j] += vec4(feature.w, feature.w, feature.w, feature.w) * F[3][j];
+        // for different output elements.
+        [[unroll]] for (uint i = 0; i < IVC_OH; ++i) {
+          uint oh = i + threadID.z * IVC_OH + wgBaseOH;
+          [[unroll]] for (uint j = 0; j < IVC_OW; ++j) {
+            uint ow = j + threadID.y * IVC_OW + wgBaseOW;
+            vec4 feature = Input.data[inputCoordToOffset(oh * SH + fh, ow * SW + fw, ic)];
+            [[unroll]] for (uint k = 0; k < IVC_OC; ++k) {
+              O[i][j][k] += vec4(feature.x, feature.x, feature.x, feature.x) * F[0][k];
+              O[i][j][k] += vec4(feature.y, feature.y, feature.y, feature.y) * F[1][k];
+              O[i][j][k] += vec4(feature.z, feature.z, feature.z, feature.z) * F[2][k];
+              O[i][j][k] += vec4(feature.w, feature.w, feature.w, feature.w) * F[3][k];
+            }
           }
         }
       }
@@ -112,11 +121,14 @@ void main() {
   }
 
   // Write out the computed output elements.
-  [[unroll]] for (uint i = 0; i < IVC_OW; ++i) {
-    [[unroll]] for (uint j = 0; j < IVC_OC; ++j) {
-      uint ow = i + laneID.y * IVC_OW + wgBaseOW;
-      uint oc = (laneID.x + laneCount.x * j) * 4 + wgBaseOC;
-      Output.data[outputCoordToOffset(wgOH, ow, oc)] = O[i][j];
+  [[unroll]] for (uint i = 0; i < IVC_OH; ++i) {
+    uint oh = i + threadID.z * IVC_OH + wgBaseOH;
+    [[unroll]] for (uint j = 0; j < IVC_OW; ++j) {
+      uint ow = j + threadID.y * IVC_OW + wgBaseOW;
+      [[unroll]] for (uint k = 0; k < IVC_OC; ++k) {
+        uint oc = (threadID.x + threadCount.x * k) * 4 + wgBaseOC;
+        Output.data[outputCoordToOffset(oh, ow, oc)] = O[i][j][k];
+      }
     }
   }
 }
