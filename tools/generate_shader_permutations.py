@@ -74,23 +74,35 @@ def parse_arguments():
 
 
 def parse_define(define):
-  """Parses 'FOO=[BAR|BAZ]' into (FOO, [BAR, BAZ])."""
+  """Parses a 'FOO=[FOO1|FOO2]' string into a (FOO, [FOO1, FOO2]) tuple."""
   macro, choices = define.split("=")
   choices = choices.strip("[]").split("|")
   return (macro, choices)
+
+
+def parse_multi_list(macro):
+  """Parses a '{FOO,BAR}' string into a [FOO, BAR] list."""
+  return macro.strip("{}").split(",")
 
 
 def generate_productions(defines):
   """Generates all productions from defines.
 
   Arguments:
-    - defines: an array of 'FOO=[BAR|BAZ]' strings.
+    - defines: an array of 'FOO=[FOO1|FOO2]' or
+               '{FOO,BAR}=[{FOO1,BAR1}|{FOO2,BAR2}]' strings.
   """
   defines = [parse_define(d) for d in defines]
   all_macros = [d[0] for d in defines]
   all_choices = [d[1] for d in defines]
   for case in itertools.product(*all_choices):
-    macro_choice = list(zip(all_macros, case))
+    unexpanded_macro_choice = list(zip(all_macros, case))
+    macro_choice = []
+    # Expand ({FOO,BAR}, {FOO1,BAR1}) into ((FOO, FOO1), (BAR, BAR1)).
+    for (macro, choice) in unexpanded_macro_choice:
+      macros = parse_multi_list(macro)
+      choices = parse_multi_list(choice)
+      macro_choice.extend(list(zip(macros, choices)))
     var_name = "_".join(["{}_{}".format(m, c) for (m, c) in macro_choice])
     compiler_defines = ["-D{}={}".format(m, c) for (m, c) in macro_choice]
     yield (var_name, compiler_defines)

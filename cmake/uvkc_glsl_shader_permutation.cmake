@@ -44,17 +44,26 @@ include(CMakeParseArguments)
 #     PERMUTATION
 #       "TILE_M=[16|32]"
 #       "TILE_N=[8|16]"
+#       "{X,Y}=[{1,2}|{3,4}]"
 #   )
 # glslc will be invoked four times with the following definitions:
-#   - glslc .. -DTILE_M=16 -DTILE_N=8
-#   - glslc .. -DTILE_M=16 -DTILE_N=16
-#   - glslc .. -DTILE_M=32 -DTILE_N=8
-#   - glslc .. -DTILE_M=32 -DTILE_N=16
+#   - glslc .. -DTILE_M=16 -DTILE_N=8  -DX=1 -DY=2
+#   - glslc .. -DTILE_M=16 -DTILE_N=8  -DX=3 -DY=4
+#   - glslc .. -DTILE_M=16 -DTILE_N=16 -DX=1 -DY=2
+#   - glslc .. -DTILE_M=16 -DTILE_N=16 -DX=3 -DY=4
+#   - glslc .. -DTILE_M=32 -DTILE_N=8  -DX=1 -DY=2
+#   - glslc .. -DTILE_M=32 -DTILE_N=8  -DX=3 -DY=4
+#   - glslc .. -DTILE_M=32 -DTILE_N=16 -DX=1 -DY=2
+#   - glslc .. -DTILE_M=32 -DTILE_N=16 -DX=3 -DY=4
 # And each of the above will generate an uint32_t array with name:
-#   - TILE_M_16_TILE_N_8
-#   - TILE_M_16_TILE_N_16
-#   - TILE_M_32_TILE_N_8
-#   - TILE_M_32_TILE_N_16
+#   - TILE_M_16_TILE_N_8_X_1_Y_2
+#   - TILE_M_16_TILE_N_8_X_3_Y_4
+#   - TILE_M_16_TILE_N_16_X_1_Y_2
+#   - TILE_M_16_TILE_N_16_X_3_Y_4
+#   - TILE_M_32_TILE_N_8_X_1_Y_2
+#   - TILE_M_32_TILE_N_8_X_3_Y_4
+#   - TILE_M_32_TILE_N_16_X_1_Y_2
+#   - TILE_M_32_TILE_N_16_X_3_Y_4
 # In the 'matmul_corpus_spirv_permutation.inc' file.
 function(uvkc_glsl_shader_permutation)
   cmake_parse_arguments(

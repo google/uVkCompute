@@ -12,11 +12,15 @@
 // - No padding.
 // - No dilation.
 
-layout(local_size_x_id = 10, local_size_y_id = 11, local_size_z_id = 12) in;
+// Macros to be defined at compile time
+// WG_X: gl_WorkGroupSize.x
+// WG_Y: gl_WorkGroupSize.y
+// WG_Z: gl_WorkGroupSize.z
+// IVC_OH: how many indices one invocation processes along output height
+// IVC_OW: how many indices one invocation processes along output width
+// IVC_OC: how many vectors one invocation processes along output channel
 
-layout(constant_id = 13) const uint WG_SIZE_X = 1;
-layout(constant_id = 14) const uint WG_SIZE_Y = 1;
-layout(constant_id = 15) const uint WG_SIZE_Z = 1;
+layout(local_size_x = WG_X, local_size_y = WG_Y, local_size_z = WG_Z) in;
 
 layout(set=0, binding=0) buffer InputBuffer   { vec4 data[]; } Input;
 layout(set=0, binding=1) buffer FilterBufffer { vec4 data[]; } Filter;
@@ -32,27 +36,20 @@ layout(constant_id = 6) const uint FW = 1; // Filter width
 layout(constant_id = 7) const uint SH = 1; // Height stride
 layout(constant_id = 8) const uint SW = 1; // Width stride
 
-// Macros to be defined at compile time
-// WG_TILE_OH: tile size along the output height dimension for a workgroup
-// WG_TILE_OW: tile size along the output width dimension for a workgroup
-// WG_TILE_OC: tile size along the output channel dimension for a workgroup
+const uint WG_TILE_OH = WG_Z * IVC_OH;
+const uint WG_TILE_OW = WG_Y * IVC_OW;
+const uint WG_TILE_OC = WG_X * IVC_OC * 4;
 
 // Workgroup count:
 // - x: OC / WG_TILE_OC
 // - y: OW / WG_TILE_OW
 // - z: OH / WG_TILE_OH
-// So each workgroup computes (WG_TILE_OH * WG_TILE_OW * WG_TILE_OC) output elements.
-
-// Each invocation in the workgroup processes:
-// - x: WG_TILE_OC / (gl_WorkGroupSize.x * 4)
-// - y: WG_TILE_OW / gl_WorkGroupSize.y
-// - z: WG_TILE_OH / gl_WorkGroupSize.z
+// So each workgroup computes (WG_TILE_OH * WG_TILE_OW * WG_TILE_OC) output
+// elements.
+// Each invocation in the workgroup processes (IVC_OH * IVC_OW * IVC_OC * 4)
+// output elements.
 // Adjecent invocations process elements along x dimension cyclically;
 // each handle 4 consecutive elements.
-
-const uint IVC_OC = WG_TILE_OC / (/*gl_WorkGroupSize.x=*/WG_SIZE_X * 4);
-const uint IVC_OW = WG_TILE_OW /  /*gl_WorkgroupSize.y=*/WG_SIZE_Y;
-const uint IVC_OH = WG_TILE_OH /  /*gl_WorkgroupSize.z=*/WG_SIZE_Z;
 
 uint inputCoordToOffset(uint h, uint w, uint c) {
   return (h  * IW * OC + w * OC + c) / 4;
