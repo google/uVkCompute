@@ -68,7 +68,7 @@ void main() {
   vec4 O[IVC_OH][IVC_OW][IVC_OC];
 
   // Use registers to keep the filter for this tile to increase data reuse.
-  vec4 F[IVC_OC];
+  vec4 F;
 
   uvec3 wgID = gl_WorkGroupID;
   uvec3 threadID = gl_LocalInvocationID;
@@ -92,7 +92,7 @@ void main() {
       // Load the filter for this channel tile.
       [[unroll]] for (uint k = 0; k < IVC_OC; ++k) {
         uint oc = (threadID.x + threadCount.x * k) * 4 + wgBaseOC;
-        F[k] = Filter.data[filterCoordToOffset(fh, fw, oc)];
+        F = Filter.data[filterCoordToOffset(fh, fw, oc)];
         // Load the input image's channel tile and perform multiplication with
         // filters for different output widths.
         [[unroll]] for (uint i = 0; i < IVC_OH; ++i) {
@@ -100,7 +100,7 @@ void main() {
           [[unroll]] for (uint j = 0; j < IVC_OW; ++j) {
             uint ow = j + threadID.y * IVC_OW + wgBaseOW;
             vec4 feature = Input.data[inputCoordToOffset(oh * SH + fh, ow * SW + fw, oc)];
-            O[i][j][k] += feature * F[k];
+            O[i][j][k] += feature * F;
           }
         }
       }
