@@ -24,6 +24,7 @@
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_buffer_util.h"
 #include "uvkc/benchmark/vulkan_context.h"
+#include "uvkc/benchmark/vulkan_image_util.h"
 #include "uvkc/vulkan/device.h"
 #include "uvkc/vulkan/pipeline.h"
 
@@ -33,7 +34,13 @@ using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "matmul_tiled";
 
+namespace matmul_tiled {
 #include "matmul_tiled_shader_spirv_permutation.inc"
+}
+
+namespace matmul_tiled_f16 {
+#include "matmul_tiled_shader_f16_spirv_permutation.inc"
+}
 
 struct ShaderCode {
   const char *name;       // Test case name
@@ -44,91 +51,53 @@ struct ShaderCode {
   Precision precision;
 };
 
-#define SHADER_TILE_F32(A, B, C)                             \
-  {#A "x" #B "x" #C "xf32",                                  \
-   TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TYPE_vec4,         \
-   sizeof(TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TYPE_vec4), \
-   A,                                                        \
-   B,                                                        \
+#define SHADER_TILE_F32(A, B, C)                               \
+  {#A "x" #B "x" #C "xf32",                                    \
+   matmul_tiled::TILE_M_##A##_TILE_N_##B##_TILE_K_##C,         \
+   sizeof(matmul_tiled::TILE_M_##A##_TILE_N_##B##_TILE_K_##C), \
+   A,                                                          \
+   B,                                                          \
    Precision::fp32},
 
-#define SHADER_TILE_F16(A, B, C)                                \
-  {#A "x" #B "x" #C "xf16",                                     \
-   TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TYPE_f16vec4,         \
-   sizeof(TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TYPE_f16vec4), \
-   A,                                                           \
-   B,                                                           \
+#define SHADER_TILE_F16_TEX(A, B, C, T)                                       \
+  {#A "x" #B "x" #C "xf16-Texture=" #T,                                       \
+   matmul_tiled_f16::TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TEXTURE_##T,      \
+   sizeof(                                                                    \
+       matmul_tiled_f16::TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TEXTURE_##T), \
+   A,                                                                         \
+   B,                                                                         \
    Precision::fp16},
+
+// Try with and without texture.
+#define SHADER_TILE_F16(A, B, C) \
+  SHADER_TILE_F16_TEX(A, B, C, 1) SHADER_TILE_F16_TEX(A, B, C, 0)
 
 #define SHADER_TILE(A, B, C) SHADER_TILE_F32(A, B, C) SHADER_TILE_F16(A, B, C)
 
 // clang-format off
 static ShaderCode kShaderCodeCases[] = {
-  SHADER_TILE(1, 64,  4)
+  // TODO: re-enable non power of two tiles.
   SHADER_TILE(2, 64, 4)
-  SHADER_TILE(3, 64, 4)
   SHADER_TILE(4, 64, 4)
-  SHADER_TILE(5, 64, 4)
-  SHADER_TILE(6, 64, 4)
-  SHADER_TILE(7, 64, 4)
   SHADER_TILE(8, 64, 4)
-  SHADER_TILE(9, 64, 4)
-  SHADER_TILE(10, 64, 4)
-  SHADER_TILE(11, 64, 4)
-  SHADER_TILE(12, 64, 4)
-  SHADER_TILE(13, 64, 4)
-  SHADER_TILE(14, 64, 4)
-  SHADER_TILE(15, 64, 4)
   SHADER_TILE(16, 64, 4)
-  SHADER_TILE(1, 128, 4)
+  SHADER_TILE(32, 64, 4)
   SHADER_TILE(2, 128, 4)
-  SHADER_TILE(3, 128, 4)
   SHADER_TILE(4, 128, 4)
-  SHADER_TILE(5, 128, 4)
-  SHADER_TILE(6, 128, 4)
-  SHADER_TILE(7, 128, 4)
   SHADER_TILE(8, 128, 4)
-  SHADER_TILE(9, 128, 4)
-  SHADER_TILE(10, 128, 4)
-  SHADER_TILE(11, 128, 4)
-  SHADER_TILE(12, 128, 4)
-  SHADER_TILE(13, 128, 4)
-  SHADER_TILE(14, 128, 4)
-  SHADER_TILE(15, 128, 4)
   SHADER_TILE(16, 128, 4)
+  SHADER_TILE(32, 128, 4)
 
-  SHADER_TILE_F16(1, 64, 8)
   SHADER_TILE_F16(2, 64, 8)
-  SHADER_TILE_F16(3, 64, 8)
   SHADER_TILE_F16(4, 64, 8)
-  SHADER_TILE_F16(5, 64, 8)
-  SHADER_TILE_F16(6, 64, 8)
-  SHADER_TILE_F16(7, 64, 8)
   SHADER_TILE_F16(8, 64, 8)
-  SHADER_TILE_F16(9, 64, 8)
-  SHADER_TILE_F16(10, 64, 8)
-  SHADER_TILE_F16(11, 64, 8)
-  SHADER_TILE_F16(12, 64, 8)
-  SHADER_TILE_F16(13, 64, 8)
-  SHADER_TILE_F16(14, 64, 8)
-  SHADER_TILE_F16(15, 64, 8)
   SHADER_TILE_F16(16, 64, 8)
-  SHADER_TILE_F16(1, 128, 8)
+  SHADER_TILE_F16(32, 64, 8)
   SHADER_TILE_F16(2, 128, 8)
-  SHADER_TILE_F16(3, 128, 8)
   SHADER_TILE_F16(4, 128, 8)
-  SHADER_TILE_F16(5, 128, 8)
-  SHADER_TILE_F16(6, 128, 8)
-  SHADER_TILE_F16(7, 128, 8)
   SHADER_TILE_F16(8, 128, 8)
-  SHADER_TILE_F16(9, 128, 8)
-  SHADER_TILE_F16(10, 128, 8)
-  SHADER_TILE_F16(11, 128, 8)
-  SHADER_TILE_F16(12, 128, 8)
-  SHADER_TILE_F16(13, 128, 8)
-  SHADER_TILE_F16(14, 128, 8)
-  SHADER_TILE_F16(15, 128, 8)
   SHADER_TILE_F16(16, 128, 8)
+  SHADER_TILE_F16(32, 128, 8)
 };
 // clang-format on
 
@@ -181,6 +150,16 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
           VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dst_size));
 
+  VkExtent3D dimensions1 = {uint32_t(N / 8), uint32_t(K), 1};
+  BM_CHECK_OK_AND_ASSIGN(
+      auto src_image1,
+      device->CreateImage(
+          VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_TYPE_2D,
+          VK_FORMAT_R32G32B32A32_SFLOAT, dimensions1, VK_IMAGE_TILING_OPTIMAL,
+          VK_IMAGE_VIEW_TYPE_2D));
+  BM_CHECK_OK_AND_ASSIGN(auto src_sampler1, device->CreateSampler());
+
   //===-------------------------------------------------------------------===/
   // Set source buffer data
   //===-------------------------------------------------------------------===/
@@ -213,6 +192,18 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
             }
           }
         }));
+
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceImageViaStagingBuffer(
+        device, src_image1.get(), dimensions1,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, src1_size,
+        [&](void *ptr, size_t num_bytes) {
+          uint16_t *src_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (int i = 0; i < K; i++) {
+            for (int j = 0; j < N; j++) {
+              src_float_buffer[j + i * K] = fp16(getSrc1(i, j)).getValue();
+            }
+          }
+        }));
   } else if (precision == Precision::fp32) {
     BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
         device, src0_buffer.get(), src0_size, [&](void *ptr, size_t num_bytes) {
@@ -238,7 +229,14 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===-------------------------------------------------------------------===/
   // Dispatch
   //===-------------------------------------------------------------------===/
-
+  if (precision == Precision::fp16) {
+    // For simplicity always bind the B matrix as both texture and buffer.
+    std::vector<::uvkc::vulkan::Device::BoundImage> bound_images = {
+        {src_image1.get(), src_sampler1.get(), /*set=*/0, /*binding=*/3}};
+    BM_CHECK_OK(device->AttachImageToDescriptor(
+        *shader_module, layout_set_map,
+        {bound_images.data(), bound_images.size()}));
+  }
   std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers = {
       {src0_buffer.get(), /*set=*/0, /*binding=*/0},
       {src1_buffer.get(), /*set=*/0, /*binding=*/1},
