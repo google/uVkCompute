@@ -38,12 +38,25 @@ uvkc_glsl_shader_permutation(
     "VEC4TYPE=f16vec4"
 )
 
+uvkc_glsl_shader_permutation(
+  NAME
+    conv2d_f16_packed_shader
+  SRC
+    "conv2d_packed.glsl"
+  PERMUTATION
+    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}|{2,4,2}]"
+    "IVC_OH=[1|2|4]"
+    "IVC_OW=[1|2|4|8]"
+    "IVC_OC=[1|2|4]"
+)
+
 uvkc_cc_binary(
   NAME
     conv2d
   SRCS
     "conv2d_main.cc"
   DEPS
+    ::conv2d_f16_packed_shader
     ::conv2d_f16_tiled_shader
     ::conv2d_f32_tiled_shader
     benchmark::benchmark

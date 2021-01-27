@@ -35,6 +35,7 @@ using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "2d_convolution";
 
+#include "conv2d_f16_packed_shader_spirv_permutation.inc"
 #include "conv2d_f16_tiled_shader_spirv_permutation.inc"
 #include "conv2d_f32_tiled_shader_spirv_permutation.inc"
 
@@ -47,6 +48,7 @@ struct ShaderCode {
   int wg_size_x;          // gl_WorkGroupSize.x
   int wg_size_y;          // gl_WorkGroupSize.y
   int wg_size_z;          // gl_WorkGroupSize.z
+  int scalar_per_thread;  // Number of scalar elements each thread process
   Precision precision;
 };
 
@@ -55,93 +57,102 @@ struct ShaderCode {
     WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC##_VEC4TYPE_##T,          \
         sizeof(                                                                                       \
             WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC##_VEC4TYPE_##T), \
-        OH, OW, OC, X, Y, Z, Precision                                                                \
+        OH, OW, OC, X, Y, Z, 4, Precision                                                             \
   }
 #define F16_SHADER_TILE(X, Y, Z, OH, OW, OC) \
   SHADER_TILE(X, Y, Z, OH, OW, OC, f16vec4, Precision::fp16)
 #define F32_SHADER_TILE(X, Y, Z, OH, OW, OC) \
   SHADER_TILE(X, Y, Z, OH, OW, OC, vec4, Precision::fp32)
 
+#define F16_SHADER_PACK(X, Y, Z, OH, OW, OC)                                           \
+  {                                                                                    \
+    WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC,          \
+        sizeof(                                                                        \
+            WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC), \
+        OH, OW, OC, X, Y, Z, 8, Precision::fp16                                        \
+  }
+
 static ShaderCode kShaderCodeCases[] = {
     // clang-format off
     // workgroup size = (16, 1, 1)
-    F16_SHADER_TILE(16, 1, 1, 1, 1, 1), F16_SHADER_TILE(16, 1, 1, 1, 1, 2), F16_SHADER_TILE(16, 1, 1, 1, 1, 4),
-    F16_SHADER_TILE(16, 1, 1, 1, 2, 1), F16_SHADER_TILE(16, 1, 1, 1, 2, 2), F16_SHADER_TILE(16, 1, 1, 1, 2, 4),
-    F16_SHADER_TILE(16, 1, 1, 1, 4, 1), F16_SHADER_TILE(16, 1, 1, 1, 4, 2), F16_SHADER_TILE(16, 1, 1, 1, 4, 4),
-    F16_SHADER_TILE(16, 1, 1, 1, 8, 1), F16_SHADER_TILE(16, 1, 1, 1, 8, 2), F16_SHADER_TILE(16, 1, 1, 1, 8, 4),
+    F16_SHADER_PACK(16, 1, 1, 1, 1, 1), F16_SHADER_PACK(16, 1, 1, 1, 1, 2), F16_SHADER_PACK(16, 1, 1, 1, 1, 4),
+    F16_SHADER_PACK(16, 1, 1, 1, 2, 1), F16_SHADER_PACK(16, 1, 1, 1, 2, 2), F16_SHADER_PACK(16, 1, 1, 1, 2, 4),
+    F16_SHADER_PACK(16, 1, 1, 1, 4, 1), F16_SHADER_PACK(16, 1, 1, 1, 4, 2), F16_SHADER_PACK(16, 1, 1, 1, 4, 4),
+    F16_SHADER_PACK(16, 1, 1, 1, 8, 1), F16_SHADER_PACK(16, 1, 1, 1, 8, 2), F16_SHADER_PACK(16, 1, 1, 1, 8, 4),
 
-    F16_SHADER_TILE(16, 1, 1, 2, 1, 1), F16_SHADER_TILE(16, 1, 1, 2, 1, 2), F16_SHADER_TILE(16, 1, 1, 2, 1, 4),
-    F16_SHADER_TILE(16, 1, 1, 2, 2, 1), F16_SHADER_TILE(16, 1, 1, 2, 2, 2), F16_SHADER_TILE(16, 1, 1, 2, 2, 4),
-    F16_SHADER_TILE(16, 1, 1, 2, 4, 1), F16_SHADER_TILE(16, 1, 1, 2, 4, 2), F16_SHADER_TILE(16, 1, 1, 2, 4, 4),
-    F16_SHADER_TILE(16, 1, 1, 2, 8, 1), F16_SHADER_TILE(16, 1, 1, 2, 8, 2), F16_SHADER_TILE(16, 1, 1, 2, 8, 4),
+    F16_SHADER_PACK(16, 1, 1, 2, 1, 1), F16_SHADER_PACK(16, 1, 1, 2, 1, 2), F16_SHADER_PACK(16, 1, 1, 2, 1, 4),
+    F16_SHADER_PACK(16, 1, 1, 2, 2, 1), F16_SHADER_PACK(16, 1, 1, 2, 2, 2), F16_SHADER_PACK(16, 1, 1, 2, 2, 4),
+    F16_SHADER_PACK(16, 1, 1, 2, 4, 1), F16_SHADER_PACK(16, 1, 1, 2, 4, 2), F16_SHADER_PACK(16, 1, 1, 2, 4, 4),
+    F16_SHADER_PACK(16, 1, 1, 2, 8, 1), F16_SHADER_PACK(16, 1, 1, 2, 8, 2), F16_SHADER_PACK(16, 1, 1, 2, 8, 4),
 
-    F16_SHADER_TILE(16, 1, 1, 4, 1, 1), F16_SHADER_TILE(16, 1, 1, 4, 1, 2), F16_SHADER_TILE(16, 1, 1, 4, 1, 4),
-    F16_SHADER_TILE(16, 1, 1, 4, 2, 1), F16_SHADER_TILE(16, 1, 1, 4, 2, 2), F16_SHADER_TILE(16, 1, 1, 4, 2, 4),
-    F16_SHADER_TILE(16, 1, 1, 4, 4, 1), F16_SHADER_TILE(16, 1, 1, 4, 4, 2), F16_SHADER_TILE(16, 1, 1, 4, 4, 4),
+    F16_SHADER_PACK(16, 1, 1, 4, 1, 1), F16_SHADER_PACK(16, 1, 1, 4, 1, 2), F16_SHADER_PACK(16, 1, 1, 4, 1, 4),
+    F16_SHADER_PACK(16, 1, 1, 4, 2, 1), F16_SHADER_PACK(16, 1, 1, 4, 2, 2), F16_SHADER_PACK(16, 1, 1, 4, 2, 4),
+    F16_SHADER_PACK(16, 1, 1, 4, 4, 1), F16_SHADER_PACK(16, 1, 1, 4, 4, 2), F16_SHADER_PACK(16, 1, 1, 4, 4, 4),
 
     // workgroup size = (8, 2, 1)
-    F16_SHADER_TILE(8, 2, 1, 1, 1, 1), F16_SHADER_TILE(8, 2, 1, 1, 1, 2), F16_SHADER_TILE(8, 2, 1, 1, 1, 4),
-    F16_SHADER_TILE(8, 2, 1, 1, 2, 1), F16_SHADER_TILE(8, 2, 1, 1, 2, 2), F16_SHADER_TILE(8, 2, 1, 1, 2, 4),
-    F16_SHADER_TILE(8, 2, 1, 1, 4, 1), F16_SHADER_TILE(8, 2, 1, 1, 4, 2), F16_SHADER_TILE(8, 2, 1, 1, 4, 4),
-    F16_SHADER_TILE(8, 2, 1, 1, 8, 1), F16_SHADER_TILE(8, 2, 1, 1, 8, 2), F16_SHADER_TILE(8, 2, 1, 1, 8, 4),
+    F16_SHADER_PACK(8, 2, 1, 1, 1, 1), F16_SHADER_PACK(8, 2, 1, 1, 1, 2), F16_SHADER_PACK(8, 2, 1, 1, 1, 4),
+    F16_SHADER_PACK(8, 2, 1, 1, 2, 1), F16_SHADER_PACK(8, 2, 1, 1, 2, 2), F16_SHADER_PACK(8, 2, 1, 1, 2, 4),
+    F16_SHADER_PACK(8, 2, 1, 1, 4, 1), F16_SHADER_PACK(8, 2, 1, 1, 4, 2), F16_SHADER_PACK(8, 2, 1, 1, 4, 4),
+    F16_SHADER_PACK(8, 2, 1, 1, 8, 1), F16_SHADER_PACK(8, 2, 1, 1, 8, 2), F16_SHADER_PACK(8, 2, 1, 1, 8, 4),
 
-    F16_SHADER_TILE(8, 2, 1, 2, 1, 1), F16_SHADER_TILE(8, 2, 1, 2, 1, 2), F16_SHADER_TILE(8, 2, 1, 2, 1, 4),
-    F16_SHADER_TILE(8, 2, 1, 2, 2, 1), F16_SHADER_TILE(8, 2, 1, 2, 2, 2), F16_SHADER_TILE(8, 2, 1, 2, 2, 4),
-    F16_SHADER_TILE(8, 2, 1, 2, 4, 1), F16_SHADER_TILE(8, 2, 1, 2, 4, 2), F16_SHADER_TILE(8, 2, 1, 2, 4, 4),
-    F16_SHADER_TILE(8, 2, 1, 2, 8, 1), F16_SHADER_TILE(8, 2, 1, 2, 8, 2), F16_SHADER_TILE(8, 2, 1, 2, 8, 4),
+    F16_SHADER_PACK(8, 2, 1, 2, 1, 1), F16_SHADER_PACK(8, 2, 1, 2, 1, 2), F16_SHADER_PACK(8, 2, 1, 2, 1, 4),
+    F16_SHADER_PACK(8, 2, 1, 2, 2, 1), F16_SHADER_PACK(8, 2, 1, 2, 2, 2), F16_SHADER_PACK(8, 2, 1, 2, 2, 4),
+    F16_SHADER_PACK(8, 2, 1, 2, 4, 1), F16_SHADER_PACK(8, 2, 1, 2, 4, 2), F16_SHADER_PACK(8, 2, 1, 2, 4, 4),
+    F16_SHADER_PACK(8, 2, 1, 2, 8, 1), F16_SHADER_PACK(8, 2, 1, 2, 8, 2), F16_SHADER_PACK(8, 2, 1, 2, 8, 4),
 
-    F16_SHADER_TILE(8, 2, 1, 4, 1, 1), F16_SHADER_TILE(8, 2, 1, 4, 1, 2), F16_SHADER_TILE(8, 2, 1, 4, 1, 4),
-    F16_SHADER_TILE(8, 2, 1, 4, 2, 1), F16_SHADER_TILE(8, 2, 1, 4, 2, 2), F16_SHADER_TILE(8, 2, 1, 4, 2, 4),
-    F16_SHADER_TILE(8, 2, 1, 4, 4, 1), F16_SHADER_TILE(8, 2, 1, 4, 4, 2), F16_SHADER_TILE(8, 2, 1, 4, 4, 4),
+    F16_SHADER_PACK(8, 2, 1, 4, 1, 1), F16_SHADER_PACK(8, 2, 1, 4, 1, 2), F16_SHADER_PACK(8, 2, 1, 4, 1, 4),
+    F16_SHADER_PACK(8, 2, 1, 4, 2, 1), F16_SHADER_PACK(8, 2, 1, 4, 2, 2), F16_SHADER_PACK(8, 2, 1, 4, 2, 4),
+    F16_SHADER_PACK(8, 2, 1, 4, 4, 1), F16_SHADER_PACK(8, 2, 1, 4, 4, 2), F16_SHADER_PACK(8, 2, 1, 4, 4, 4),
 
     // workgroup size = (4, 4, 1)
-    F16_SHADER_TILE(4, 4, 1, 1, 1, 1), F16_SHADER_TILE(4, 4, 1, 1, 1, 2), F16_SHADER_TILE(4, 4, 1, 1, 1, 4),
-    F16_SHADER_TILE(4, 4, 1, 1, 2, 1), F16_SHADER_TILE(4, 4, 1, 1, 2, 2), F16_SHADER_TILE(4, 4, 1, 1, 2, 4),
-    F16_SHADER_TILE(4, 4, 1, 1, 4, 1), F16_SHADER_TILE(4, 4, 1, 1, 4, 2), F16_SHADER_TILE(4, 4, 1, 1, 4, 4),
-    F16_SHADER_TILE(4, 4, 1, 1, 8, 1), F16_SHADER_TILE(4, 4, 1, 1, 8, 2), F16_SHADER_TILE(4, 4, 1, 1, 8, 4),
+    F16_SHADER_PACK(4, 4, 1, 1, 1, 1), F16_SHADER_PACK(4, 4, 1, 1, 1, 2), F16_SHADER_PACK(4, 4, 1, 1, 1, 4),
+    F16_SHADER_PACK(4, 4, 1, 1, 2, 1), F16_SHADER_PACK(4, 4, 1, 1, 2, 2), F16_SHADER_PACK(4, 4, 1, 1, 2, 4),
+    F16_SHADER_PACK(4, 4, 1, 1, 4, 1), F16_SHADER_PACK(4, 4, 1, 1, 4, 2), F16_SHADER_PACK(4, 4, 1, 1, 4, 4),
+    F16_SHADER_PACK(4, 4, 1, 1, 8, 1), F16_SHADER_PACK(4, 4, 1, 1, 8, 2), F16_SHADER_PACK(4, 4, 1, 1, 8, 4),
 
-    F16_SHADER_TILE(4, 4, 1, 2, 1, 1), F16_SHADER_TILE(4, 4, 1, 2, 1, 2), F16_SHADER_TILE(4, 4, 1, 2, 1, 4),
-    F16_SHADER_TILE(4, 4, 1, 2, 2, 1), F16_SHADER_TILE(4, 4, 1, 2, 2, 2), F16_SHADER_TILE(4, 4, 1, 2, 2, 4),
-    F16_SHADER_TILE(4, 4, 1, 2, 4, 1), F16_SHADER_TILE(4, 4, 1, 2, 4, 2), F16_SHADER_TILE(4, 4, 1, 2, 4, 4),
-    F16_SHADER_TILE(4, 4, 1, 2, 8, 1), F16_SHADER_TILE(4, 4, 1, 2, 8, 2), F16_SHADER_TILE(4, 4, 1, 2, 8, 4),
+    F16_SHADER_PACK(4, 4, 1, 2, 1, 1), F16_SHADER_PACK(4, 4, 1, 2, 1, 2), F16_SHADER_PACK(4, 4, 1, 2, 1, 4),
+    F16_SHADER_PACK(4, 4, 1, 2, 2, 1), F16_SHADER_PACK(4, 4, 1, 2, 2, 2), F16_SHADER_PACK(4, 4, 1, 2, 2, 4),
+    F16_SHADER_PACK(4, 4, 1, 2, 4, 1), F16_SHADER_PACK(4, 4, 1, 2, 4, 2), F16_SHADER_PACK(4, 4, 1, 2, 4, 4),
+    F16_SHADER_PACK(4, 4, 1, 2, 8, 1), F16_SHADER_PACK(4, 4, 1, 2, 8, 2), F16_SHADER_PACK(4, 4, 1, 2, 8, 4),
 
-    F16_SHADER_TILE(4, 4, 1, 4, 1, 1), F16_SHADER_TILE(4, 4, 1, 4, 1, 2), F16_SHADER_TILE(4, 4, 1, 4, 1, 4),
-    F16_SHADER_TILE(4, 4, 1, 4, 2, 1), F16_SHADER_TILE(4, 4, 1, 4, 2, 2), F16_SHADER_TILE(4, 4, 1, 4, 2, 4),
-    F16_SHADER_TILE(4, 4, 1, 4, 4, 1), F16_SHADER_TILE(4, 4, 1, 4, 4, 2), F16_SHADER_TILE(4, 4, 1, 4, 4, 4),
+    F16_SHADER_PACK(4, 4, 1, 4, 1, 1), F16_SHADER_PACK(4, 4, 1, 4, 1, 2), F16_SHADER_PACK(4, 4, 1, 4, 1, 4),
+    F16_SHADER_PACK(4, 4, 1, 4, 2, 1), F16_SHADER_PACK(4, 4, 1, 4, 2, 2), F16_SHADER_PACK(4, 4, 1, 4, 2, 4),
+    F16_SHADER_PACK(4, 4, 1, 4, 4, 1), F16_SHADER_PACK(4, 4, 1, 4, 4, 2), F16_SHADER_PACK(4, 4, 1, 4, 4, 4),
 
     // workgroup size = (4, 2, 2)
-    F16_SHADER_TILE(4, 2, 2, 1, 1, 1), F16_SHADER_TILE(4, 2, 2, 1, 1, 2), F16_SHADER_TILE(4, 2, 2, 1, 1, 4),
-    F16_SHADER_TILE(4, 2, 2, 1, 2, 1), F16_SHADER_TILE(4, 2, 2, 1, 2, 2), F16_SHADER_TILE(4, 2, 2, 1, 2, 4),
-    F16_SHADER_TILE(4, 2, 2, 1, 4, 1), F16_SHADER_TILE(4, 2, 2, 1, 4, 2), F16_SHADER_TILE(4, 2, 2, 1, 4, 4),
-    F16_SHADER_TILE(4, 2, 2, 1, 8, 1), F16_SHADER_TILE(4, 2, 2, 1, 8, 2), F16_SHADER_TILE(4, 2, 2, 1, 8, 4),
+    F16_SHADER_PACK(4, 2, 2, 1, 1, 1), F16_SHADER_PACK(4, 2, 2, 1, 1, 2), F16_SHADER_PACK(4, 2, 2, 1, 1, 4),
+    F16_SHADER_PACK(4, 2, 2, 1, 2, 1), F16_SHADER_PACK(4, 2, 2, 1, 2, 2), F16_SHADER_PACK(4, 2, 2, 1, 2, 4),
+    F16_SHADER_PACK(4, 2, 2, 1, 4, 1), F16_SHADER_PACK(4, 2, 2, 1, 4, 2), F16_SHADER_PACK(4, 2, 2, 1, 4, 4),
+    F16_SHADER_PACK(4, 2, 2, 1, 8, 1), F16_SHADER_PACK(4, 2, 2, 1, 8, 2), F16_SHADER_PACK(4, 2, 2, 1, 8, 4),
 
-    F16_SHADER_TILE(4, 2, 2, 2, 1, 1), F16_SHADER_TILE(4, 2, 2, 2, 1, 2), F16_SHADER_TILE(4, 2, 2, 2, 1, 4),
-    F16_SHADER_TILE(4, 2, 2, 2, 2, 1), F16_SHADER_TILE(4, 2, 2, 2, 2, 2), F16_SHADER_TILE(4, 2, 2, 2, 2, 4),
-    F16_SHADER_TILE(4, 2, 2, 2, 4, 1), F16_SHADER_TILE(4, 2, 2, 2, 4, 2), F16_SHADER_TILE(4, 2, 2, 2, 4, 4),
-    F16_SHADER_TILE(4, 2, 2, 2, 8, 1), F16_SHADER_TILE(4, 2, 2, 2, 8, 2), F16_SHADER_TILE(4, 2, 2, 2, 8, 4),
+    F16_SHADER_PACK(4, 2, 2, 2, 1, 1), F16_SHADER_PACK(4, 2, 2, 2, 1, 2), F16_SHADER_PACK(4, 2, 2, 2, 1, 4),
+    F16_SHADER_PACK(4, 2, 2, 2, 2, 1), F16_SHADER_PACK(4, 2, 2, 2, 2, 2), F16_SHADER_PACK(4, 2, 2, 2, 2, 4),
+    F16_SHADER_PACK(4, 2, 2, 2, 4, 1), F16_SHADER_PACK(4, 2, 2, 2, 4, 2), F16_SHADER_PACK(4, 2, 2, 2, 4, 4),
+    F16_SHADER_PACK(4, 2, 2, 2, 8, 1), F16_SHADER_PACK(4, 2, 2, 2, 8, 2), F16_SHADER_PACK(4, 2, 2, 2, 8, 4),
 
-    F16_SHADER_TILE(4, 2, 2, 4, 1, 1), F16_SHADER_TILE(4, 2, 2, 4, 1, 2), F16_SHADER_TILE(4, 2, 2, 4, 1, 4),
-    F16_SHADER_TILE(4, 2, 2, 4, 2, 1), F16_SHADER_TILE(4, 2, 2, 4, 2, 2), F16_SHADER_TILE(4, 2, 2, 4, 2, 4),
-    F16_SHADER_TILE(4, 2, 2, 4, 4, 1), F16_SHADER_TILE(4, 2, 2, 4, 4, 2), F16_SHADER_TILE(4, 2, 2, 4, 4, 4),
+    F16_SHADER_PACK(4, 2, 2, 4, 1, 1), F16_SHADER_PACK(4, 2, 2, 4, 1, 2), F16_SHADER_PACK(4, 2, 2, 4, 1, 4),
+    F16_SHADER_PACK(4, 2, 2, 4, 2, 1), F16_SHADER_PACK(4, 2, 2, 4, 2, 2), F16_SHADER_PACK(4, 2, 2, 4, 2, 4),
+    F16_SHADER_PACK(4, 2, 2, 4, 4, 1), F16_SHADER_PACK(4, 2, 2, 4, 4, 2), F16_SHADER_PACK(4, 2, 2, 4, 4, 4),
 
     // workgroup size = (2, 4, 2)
-    F16_SHADER_TILE(2, 4, 2, 1, 1, 1), F16_SHADER_TILE(2, 4, 2, 1, 1, 2), F16_SHADER_TILE(2, 4, 2, 1, 1, 4),
-    F16_SHADER_TILE(2, 4, 2, 1, 2, 1), F16_SHADER_TILE(2, 4, 2, 1, 2, 2), F16_SHADER_TILE(2, 4, 2, 1, 2, 4),
-    F16_SHADER_TILE(2, 4, 2, 1, 4, 1), F16_SHADER_TILE(2, 4, 2, 1, 4, 2), F16_SHADER_TILE(2, 4, 2, 1, 4, 4),
-    F16_SHADER_TILE(2, 4, 2, 1, 8, 1), F16_SHADER_TILE(2, 4, 2, 1, 8, 2), F16_SHADER_TILE(2, 4, 2, 1, 8, 4),
+    F16_SHADER_PACK(2, 4, 2, 1, 1, 1), F16_SHADER_PACK(2, 4, 2, 1, 1, 2), F16_SHADER_PACK(2, 4, 2, 1, 1, 4),
+    F16_SHADER_PACK(2, 4, 2, 1, 2, 1), F16_SHADER_PACK(2, 4, 2, 1, 2, 2), F16_SHADER_PACK(2, 4, 2, 1, 2, 4),
+    F16_SHADER_PACK(2, 4, 2, 1, 4, 1), F16_SHADER_PACK(2, 4, 2, 1, 4, 2), F16_SHADER_PACK(2, 4, 2, 1, 4, 4),
+    F16_SHADER_PACK(2, 4, 2, 1, 8, 1), F16_SHADER_PACK(2, 4, 2, 1, 8, 2), F16_SHADER_PACK(2, 4, 2, 1, 8, 4),
 
-    F16_SHADER_TILE(2, 4, 2, 2, 1, 1), F16_SHADER_TILE(2, 4, 2, 2, 1, 2), F16_SHADER_TILE(2, 4, 2, 2, 1, 4),
-    F16_SHADER_TILE(2, 4, 2, 2, 2, 1), F16_SHADER_TILE(2, 4, 2, 2, 2, 2), F16_SHADER_TILE(2, 4, 2, 2, 2, 4),
-    F16_SHADER_TILE(2, 4, 2, 2, 4, 1), F16_SHADER_TILE(2, 4, 2, 2, 4, 2), F16_SHADER_TILE(2, 4, 2, 2, 4, 4),
-    F16_SHADER_TILE(2, 4, 2, 2, 8, 1), F16_SHADER_TILE(2, 4, 2, 2, 8, 2), F16_SHADER_TILE(2, 4, 2, 2, 8, 4),
+    F16_SHADER_PACK(2, 4, 2, 2, 1, 1), F16_SHADER_PACK(2, 4, 2, 2, 1, 2), F16_SHADER_PACK(2, 4, 2, 2, 1, 4),
+    F16_SHADER_PACK(2, 4, 2, 2, 2, 1), F16_SHADER_PACK(2, 4, 2, 2, 2, 2), F16_SHADER_PACK(2, 4, 2, 2, 2, 4),
+    F16_SHADER_PACK(2, 4, 2, 2, 4, 1), F16_SHADER_PACK(2, 4, 2, 2, 4, 2), F16_SHADER_PACK(2, 4, 2, 2, 4, 4),
+    F16_SHADER_PACK(2, 4, 2, 2, 8, 1), F16_SHADER_PACK(2, 4, 2, 2, 8, 2), F16_SHADER_PACK(2, 4, 2, 2, 8, 4),
 
-    F16_SHADER_TILE(2, 4, 2, 4, 1, 1), F16_SHADER_TILE(2, 4, 2, 4, 1, 2), F16_SHADER_TILE(2, 4, 2, 4, 1, 4),
-    F16_SHADER_TILE(2, 4, 2, 4, 2, 1), F16_SHADER_TILE(2, 4, 2, 4, 2, 2), F16_SHADER_TILE(2, 4, 2, 4, 2, 4),
-    F16_SHADER_TILE(2, 4, 2, 4, 4, 1), F16_SHADER_TILE(2, 4, 2, 4, 4, 2), F16_SHADER_TILE(2, 4, 2, 4, 4, 4),
+    F16_SHADER_PACK(2, 4, 2, 4, 1, 1), F16_SHADER_PACK(2, 4, 2, 4, 1, 2), F16_SHADER_PACK(2, 4, 2, 4, 1, 4),
+    F16_SHADER_PACK(2, 4, 2, 4, 2, 1), F16_SHADER_PACK(2, 4, 2, 4, 2, 2), F16_SHADER_PACK(2, 4, 2, 4, 2, 4),
+    F16_SHADER_PACK(2, 4, 2, 4, 4, 1), F16_SHADER_PACK(2, 4, 2, 4, 4, 2), F16_SHADER_PACK(2, 4, 2, 4, 4, 4),
     // clang-format on
 };
 #undef F16_SHADER_TILE
 #undef F32_SHADER_TILE
+#undef F16_SHADER_PACK
 #undef SHADER_TILE
 
 struct DataScaleCase {
@@ -156,7 +167,7 @@ struct DataScaleCase {
 };
 
 static DataScaleCase kDataCases[] = {
-    {258, 258, 16, 3, 3, 64, 1, 1},
+    {258, 258, 16, 3, 3, 256, 1, 1},
     //{513, 513, 16, 3, 3, 64, 2, 2},
 };
 
@@ -166,7 +177,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    int input_w, int input_c, int filter_h, int filter_w,
                    int output_c, int stride_h, int stride_w, int wg_size_x,
                    int wg_size_y, int wg_size_z, int wg_tile_oh, int wg_tile_ow,
-                   int wg_tile_oc, Precision precision) {
+                   int wg_tile_oc, int scalar_per_thread, Precision precision) {
   int output_h = (input_h - filter_h) / stride_h + 1;
   int output_w = (input_w - filter_w) / stride_w + 1;
 
@@ -180,7 +191,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
       << "expected workgroup tile size to be a multiple of workgroup size";
   BM_CHECK_EQ(wg_tile_ow % wg_size_y, 0)
       << "expected workgroup tile size to be a multiple of workgroup size";
-  BM_CHECK_EQ(wg_tile_oc % (wg_size_x * 4), 0)
+  BM_CHECK_EQ(wg_tile_oc % (wg_size_x * scalar_per_thread), 0)
       << "expected workgroup tile size to be a multiple of workgroup size";
 
   //===---------------------------------------------------------------------===/
@@ -242,11 +253,10 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===---------------------------------------------------------------------===/
 
   auto generateInputData = [](int h, int w, int c) -> float {
-    return float(h % 3) * 0.5f + float(w % 5) * 0.25f + float(c % 3) * 0.25f;
+    return ((h + w * 2 + c * 3) % 3) * 0.5f;
   };
   auto generateFilterData = [](int h, int w, int ic, int oc) -> float {
-    return float(h % 3) * 0.25f + float(w % 5) * 0.25f + float(ic % 3) * 0.25f +
-           float(oc % 5) * 0.25f;
+    return ((h + w * 2 + ic * 3 + oc * 4) % 3) * 0.5f;
   };
 
   if (precision == Precision::fp16) {
@@ -374,7 +384,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
 
                 int offset = oh * output_w * output_c + ow * output_c + oc;
                 float gpu_value = fp16(dst_float_buffer[offset]).toFloat();
-                BM_CHECK_FLOAT_EQ(gpu_value, expected_value, 2.0f)
+                BM_CHECK_FLOAT_EQ(gpu_value, expected_value, 0.25f)
                     << "destination buffer element [" << oh << ", " << ow
                     << ", " << oc << "]"
                     << " has incorrect value: expected to be " << expected_value
@@ -519,7 +529,8 @@ void RegisterVulkanBenchmarks(
     for (const auto &shader : kShaderCodeCases) {
       int wg_tile_oh = shader.invocation_oh * shader.wg_size_z;
       int wg_tile_ow = shader.invocation_ow * shader.wg_size_y;
-      int wg_tile_oc = shader.invocation_oc * shader.wg_size_x * 4;
+      int wg_tile_oc =
+          shader.invocation_oc * shader.wg_size_x * shader.scalar_per_thread;
 
       // Make sure the output image is tilable to integral number of workgroups.
       if (data.output_c % wg_tile_oc != 0) continue;
@@ -530,9 +541,8 @@ void RegisterVulkanBenchmarks(
 
       std::string shader_name = absl::StrCat(
           "Tile[", wg_tile_oh, "x", wg_tile_ow, "x", wg_tile_oc, "]/WGSize[",
-          shader.wg_size_x, "x", shader.wg_size_y, "x", shader.wg_size_z,
-          "]/Precision[", (shader.precision == Precision::fp16 ? "f16" : "f32"),
-          "]");
+          shader.wg_size_x, "x", shader.wg_size_y, "x", shader.wg_size_z, "]/",
+          (shader.precision == Precision::fp16 ? "f16" : "f32"));
 
       std::string test_name =
           absl::StrCat(gpu_name, "/", workload_name, "/", shader_name);
@@ -543,7 +553,7 @@ void RegisterVulkanBenchmarks(
           data.input_c, data.filter_h, data.filter_w, data.output_c,
           data.stride_h, data.stride_w, shader.wg_size_x, shader.wg_size_y,
           shader.wg_size_z, wg_tile_oh, wg_tile_ow, wg_tile_oc,
-          shader.precision)
+          shader.scalar_per_thread, shader.precision)
           ->UseManualTime()
           ->Unit(::benchmark::kMicrosecond);
     }
