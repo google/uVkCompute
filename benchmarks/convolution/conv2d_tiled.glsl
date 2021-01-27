@@ -1,5 +1,6 @@
 #version 450 core
 #extension GL_EXT_control_flow_attributes : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
 
 // A shader that computes 2-D convolution.
 // - Output: NHoWoCo format
@@ -20,12 +21,13 @@
 // IVC_OH: how many indices one invocation processes along output height
 // IVC_OW: how many indices one invocation processes along output width
 // IVC_OC: how many vectors one invocation processes along output channel
+// VEC4TYPE: base 4-element vector type in buffers
 
 layout(local_size_x = WG_X, local_size_y = WG_Y, local_size_z = WG_Z) in;
 
-layout(set=0, binding=0) buffer InputBuffer   { vec4 data[]; } Input;
-layout(set=0, binding=1) buffer FilterBufffer { vec4 data[]; } Filter;
-layout(set=0, binding=2) buffer OutputBuffer  { vec4 data[]; } Output;
+layout(set=0, binding=0) buffer InputBuffer   { VEC4TYPE data[]; } Input;
+layout(set=0, binding=1) buffer FilterBufffer { VEC4TYPE data[]; } Filter;
+layout(set=0, binding=2) buffer OutputBuffer  { VEC4TYPE data[]; } Output;
 
 layout(constant_id = 0) const uint OH = 1; // Output height
 layout(constant_id = 1) const uint OW = 1; // Output width
@@ -67,10 +69,10 @@ uint outputCoordToOffset(uint h, uint w, uint c) {
 
 void main() {
   // Each invocation calculates (IVC_OH * IVC_OW * IVC_OC * 4) output elements.
-  vec4 O[IVC_OH][IVC_OW][IVC_OC];
+  VEC4TYPE O[IVC_OH][IVC_OW][IVC_OC];
 
   // Use registers to keep the filter for this tile to increase data reuse.
-  vec4 F[4][IVC_OC];
+  VEC4TYPE F[4][IVC_OC];
 
   uvec3 wgID = gl_WorkGroupID;
   uvec3 threadID = gl_LocalInvocationID;
@@ -84,7 +86,7 @@ void main() {
   [[unroll]] for (uint i = 0; i < IVC_OH; ++i) {
     [[unroll]] for (uint j = 0; j < IVC_OW; ++j) {
       [[unroll]] for (uint k = 0; k < IVC_OC; ++k) {
-        O[i][j][k] = vec4(0.f, 0.f, 0.f, 0.f);
+        O[i][j][k] = VEC4TYPE(0.f, 0.f, 0.f, 0.f);
       }
     }
   }
@@ -107,12 +109,12 @@ void main() {
           uint oh = i + threadID.z * IVC_OH + wgBaseOH;
           [[unroll]] for (uint j = 0; j < IVC_OW; ++j) {
             uint ow = j + threadID.y * IVC_OW + wgBaseOW;
-            vec4 feature = Input.data[inputCoordToOffset(oh * SH + fh, ow * SW + fw, ic)];
+            VEC4TYPE feature = Input.data[inputCoordToOffset(oh * SH + fh, ow * SW + fw, ic)];
             [[unroll]] for (uint k = 0; k < IVC_OC; ++k) {
-              O[i][j][k] += vec4(feature.x, feature.x, feature.x, feature.x) * F[0][k];
-              O[i][j][k] += vec4(feature.y, feature.y, feature.y, feature.y) * F[1][k];
-              O[i][j][k] += vec4(feature.z, feature.z, feature.z, feature.z) * F[2][k];
-              O[i][j][k] += vec4(feature.w, feature.w, feature.w, feature.w) * F[3][k];
+              O[i][j][k] += VEC4TYPE(feature.x, feature.x, feature.x, feature.x) * F[0][k];
+              O[i][j][k] += VEC4TYPE(feature.y, feature.y, feature.y, feature.y) * F[1][k];
+              O[i][j][k] += VEC4TYPE(feature.z, feature.z, feature.z, feature.z) * F[2][k];
+              O[i][j][k] += VEC4TYPE(feature.w, feature.w, feature.w, feature.w) * F[3][k];
             }
           }
         }

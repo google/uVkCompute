@@ -19,6 +19,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "benchmark/benchmark.h"
+#include "uvkc/benchmark/fp16_util.h"
 #include "uvkc/benchmark/main.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_buffer_util.h"
@@ -26,12 +27,16 @@
 #include "uvkc/vulkan/device.h"
 #include "uvkc/vulkan/pipeline.h"
 
+using ::uvkc::benchmark::fp16;
+using ::uvkc::benchmark::GetSize;
 using ::uvkc::benchmark::LatencyMeasureMode;
+using ::uvkc::benchmark::Precision;
 using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "2d_convolution";
 
-#include "conv2d_tiled_shader_spirv_permutation.inc"
+#include "conv2d_f16_tiled_shader_spirv_permutation.inc"
+#include "conv2d_f32_tiled_shader_spirv_permutation.inc"
 
 struct ShaderCode {
   const uint32_t *code;   // SPIR-V code
@@ -42,208 +47,101 @@ struct ShaderCode {
   int wg_size_x;          // gl_WorkGroupSize.x
   int wg_size_y;          // gl_WorkGroupSize.y
   int wg_size_z;          // gl_WorkGroupSize.z
+  Precision precision;
 };
 
-#define SHADER_TILE(X, Y, Z, OH, OW, OC)                                               \
-  {                                                                                    \
-    WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC,          \
-        sizeof(                                                                        \
-            WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC), \
-        OH, OW, OC, X, Y, Z                                                            \
+#define SHADER_TILE(X, Y, Z, OH, OW, OC, T, Precision)                                                \
+  {                                                                                                   \
+    WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC##_VEC4TYPE_##T,          \
+        sizeof(                                                                                       \
+            WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC##_VEC4TYPE_##T), \
+        OH, OW, OC, X, Y, Z, Precision                                                                \
   }
+#define F16_SHADER_TILE(X, Y, Z, OH, OW, OC) \
+  SHADER_TILE(X, Y, Z, OH, OW, OC, f16vec4, Precision::fp16)
+#define F32_SHADER_TILE(X, Y, Z, OH, OW, OC) \
+  SHADER_TILE(X, Y, Z, OH, OW, OC, vec4, Precision::fp32)
 
 static ShaderCode kShaderCodeCases[] = {
     // clang-format off
     // workgroup size = (16, 1, 1)
-    SHADER_TILE(16, 1, 1, 1, 1, 1), SHADER_TILE(16, 1, 1, 1, 1, 2), SHADER_TILE(16, 1, 1, 1, 1, 4),
-    SHADER_TILE(16, 1, 1, 1, 2, 1), SHADER_TILE(16, 1, 1, 1, 2, 2), SHADER_TILE(16, 1, 1, 1, 2, 4),
-    SHADER_TILE(16, 1, 1, 1, 4, 1), SHADER_TILE(16, 1, 1, 1, 4, 2), SHADER_TILE(16, 1, 1, 1, 4, 4),
-    SHADER_TILE(16, 1, 1, 1, 8, 1), SHADER_TILE(16, 1, 1, 1, 8, 2), SHADER_TILE(16, 1, 1, 1, 8, 4),
+    F16_SHADER_TILE(16, 1, 1, 1, 1, 1), F16_SHADER_TILE(16, 1, 1, 1, 1, 2), F16_SHADER_TILE(16, 1, 1, 1, 1, 4),
+    F16_SHADER_TILE(16, 1, 1, 1, 2, 1), F16_SHADER_TILE(16, 1, 1, 1, 2, 2), F16_SHADER_TILE(16, 1, 1, 1, 2, 4),
+    F16_SHADER_TILE(16, 1, 1, 1, 4, 1), F16_SHADER_TILE(16, 1, 1, 1, 4, 2), F16_SHADER_TILE(16, 1, 1, 1, 4, 4),
+    F16_SHADER_TILE(16, 1, 1, 1, 8, 1), F16_SHADER_TILE(16, 1, 1, 1, 8, 2), F16_SHADER_TILE(16, 1, 1, 1, 8, 4),
 
-    SHADER_TILE(16, 1, 1, 2, 1, 1), SHADER_TILE(16, 1, 1, 2, 1, 2), SHADER_TILE(16, 1, 1, 2, 1, 4),
-    SHADER_TILE(16, 1, 1, 2, 2, 1), SHADER_TILE(16, 1, 1, 2, 2, 2), SHADER_TILE(16, 1, 1, 2, 2, 4),
-    SHADER_TILE(16, 1, 1, 2, 4, 1), SHADER_TILE(16, 1, 1, 2, 4, 2), SHADER_TILE(16, 1, 1, 2, 4, 4),
-    SHADER_TILE(16, 1, 1, 2, 8, 1), SHADER_TILE(16, 1, 1, 2, 8, 2), SHADER_TILE(16, 1, 1, 2, 8, 4),
+    F16_SHADER_TILE(16, 1, 1, 2, 1, 1), F16_SHADER_TILE(16, 1, 1, 2, 1, 2), F16_SHADER_TILE(16, 1, 1, 2, 1, 4),
+    F16_SHADER_TILE(16, 1, 1, 2, 2, 1), F16_SHADER_TILE(16, 1, 1, 2, 2, 2), F16_SHADER_TILE(16, 1, 1, 2, 2, 4),
+    F16_SHADER_TILE(16, 1, 1, 2, 4, 1), F16_SHADER_TILE(16, 1, 1, 2, 4, 2), F16_SHADER_TILE(16, 1, 1, 2, 4, 4),
+    F16_SHADER_TILE(16, 1, 1, 2, 8, 1), F16_SHADER_TILE(16, 1, 1, 2, 8, 2), F16_SHADER_TILE(16, 1, 1, 2, 8, 4),
 
-    SHADER_TILE(16, 1, 1, 4, 1, 1), SHADER_TILE(16, 1, 1, 4, 1, 2), SHADER_TILE(16, 1, 1, 4, 1, 4),
-    SHADER_TILE(16, 1, 1, 4, 2, 1), SHADER_TILE(16, 1, 1, 4, 2, 2), SHADER_TILE(16, 1, 1, 4, 2, 4),
-    SHADER_TILE(16, 1, 1, 4, 4, 1), SHADER_TILE(16, 1, 1, 4, 4, 2), SHADER_TILE(16, 1, 1, 4, 4, 4),
-    SHADER_TILE(16, 1, 1, 4, 8, 1), SHADER_TILE(16, 1, 1, 4, 8, 2), SHADER_TILE(16, 1, 1, 4, 8, 4),
-
-    SHADER_TILE(16, 1, 1, 8, 1, 1), SHADER_TILE(16, 1, 1, 8, 1, 2), SHADER_TILE(16, 1, 1, 8, 1, 4),
-    SHADER_TILE(16, 1, 1, 8, 2, 1), SHADER_TILE(16, 1, 1, 8, 2, 2), SHADER_TILE(16, 1, 1, 8, 2, 4),
-    SHADER_TILE(16, 1, 1, 8, 4, 1), SHADER_TILE(16, 1, 1, 8, 4, 2), SHADER_TILE(16, 1, 1, 8, 4, 4),
-    SHADER_TILE(16, 1, 1, 8, 8, 1), SHADER_TILE(16, 1, 1, 8, 8, 2), SHADER_TILE(16, 1, 1, 8, 8, 4),
+    F16_SHADER_TILE(16, 1, 1, 4, 1, 1), F16_SHADER_TILE(16, 1, 1, 4, 1, 2), F16_SHADER_TILE(16, 1, 1, 4, 1, 4),
+    F16_SHADER_TILE(16, 1, 1, 4, 2, 1), F16_SHADER_TILE(16, 1, 1, 4, 2, 2), F16_SHADER_TILE(16, 1, 1, 4, 2, 4),
+    F16_SHADER_TILE(16, 1, 1, 4, 4, 1), F16_SHADER_TILE(16, 1, 1, 4, 4, 2), F16_SHADER_TILE(16, 1, 1, 4, 4, 4),
 
     // workgroup size = (8, 2, 1)
-    SHADER_TILE(8, 2, 1, 1, 1, 1), SHADER_TILE(8, 2, 1, 1, 1, 2), SHADER_TILE(8, 2, 1, 1, 1, 4),
-    SHADER_TILE(8, 2, 1, 1, 2, 1), SHADER_TILE(8, 2, 1, 1, 2, 2), SHADER_TILE(8, 2, 1, 1, 2, 4),
-    SHADER_TILE(8, 2, 1, 1, 4, 1), SHADER_TILE(8, 2, 1, 1, 4, 2), SHADER_TILE(8, 2, 1, 1, 4, 4),
-    SHADER_TILE(8, 2, 1, 1, 8, 1), SHADER_TILE(8, 2, 1, 1, 8, 2), SHADER_TILE(8, 2, 1, 1, 8, 4),
+    F16_SHADER_TILE(8, 2, 1, 1, 1, 1), F16_SHADER_TILE(8, 2, 1, 1, 1, 2), F16_SHADER_TILE(8, 2, 1, 1, 1, 4),
+    F16_SHADER_TILE(8, 2, 1, 1, 2, 1), F16_SHADER_TILE(8, 2, 1, 1, 2, 2), F16_SHADER_TILE(8, 2, 1, 1, 2, 4),
+    F16_SHADER_TILE(8, 2, 1, 1, 4, 1), F16_SHADER_TILE(8, 2, 1, 1, 4, 2), F16_SHADER_TILE(8, 2, 1, 1, 4, 4),
+    F16_SHADER_TILE(8, 2, 1, 1, 8, 1), F16_SHADER_TILE(8, 2, 1, 1, 8, 2), F16_SHADER_TILE(8, 2, 1, 1, 8, 4),
 
-    SHADER_TILE(8, 2, 1, 2, 1, 1), SHADER_TILE(8, 2, 1, 2, 1, 2), SHADER_TILE(8, 2, 1, 2, 1, 4),
-    SHADER_TILE(8, 2, 1, 2, 2, 1), SHADER_TILE(8, 2, 1, 2, 2, 2), SHADER_TILE(8, 2, 1, 2, 2, 4),
-    SHADER_TILE(8, 2, 1, 2, 4, 1), SHADER_TILE(8, 2, 1, 2, 4, 2), SHADER_TILE(8, 2, 1, 2, 4, 4),
-    SHADER_TILE(8, 2, 1, 2, 8, 1), SHADER_TILE(8, 2, 1, 2, 8, 2), SHADER_TILE(8, 2, 1, 2, 8, 4),
+    F16_SHADER_TILE(8, 2, 1, 2, 1, 1), F16_SHADER_TILE(8, 2, 1, 2, 1, 2), F16_SHADER_TILE(8, 2, 1, 2, 1, 4),
+    F16_SHADER_TILE(8, 2, 1, 2, 2, 1), F16_SHADER_TILE(8, 2, 1, 2, 2, 2), F16_SHADER_TILE(8, 2, 1, 2, 2, 4),
+    F16_SHADER_TILE(8, 2, 1, 2, 4, 1), F16_SHADER_TILE(8, 2, 1, 2, 4, 2), F16_SHADER_TILE(8, 2, 1, 2, 4, 4),
+    F16_SHADER_TILE(8, 2, 1, 2, 8, 1), F16_SHADER_TILE(8, 2, 1, 2, 8, 2), F16_SHADER_TILE(8, 2, 1, 2, 8, 4),
 
-    SHADER_TILE(8, 2, 1, 4, 1, 1), SHADER_TILE(8, 2, 1, 4, 1, 2), SHADER_TILE(8, 2, 1, 4, 1, 4),
-    SHADER_TILE(8, 2, 1, 4, 2, 1), SHADER_TILE(8, 2, 1, 4, 2, 2), SHADER_TILE(8, 2, 1, 4, 2, 4),
-    SHADER_TILE(8, 2, 1, 4, 4, 1), SHADER_TILE(8, 2, 1, 4, 4, 2), SHADER_TILE(8, 2, 1, 4, 4, 4),
-    SHADER_TILE(8, 2, 1, 4, 8, 1), SHADER_TILE(8, 2, 1, 4, 8, 2), SHADER_TILE(8, 2, 1, 4, 8, 4),
-
-    SHADER_TILE(8, 2, 1, 8, 1, 1), SHADER_TILE(8, 2, 1, 8, 1, 2), SHADER_TILE(8, 2, 1, 8, 1, 4),
-    SHADER_TILE(8, 2, 1, 8, 2, 1), SHADER_TILE(8, 2, 1, 8, 2, 2), SHADER_TILE(8, 2, 1, 8, 2, 4),
-    SHADER_TILE(8, 2, 1, 8, 4, 1), SHADER_TILE(8, 2, 1, 8, 4, 2), SHADER_TILE(8, 2, 1, 8, 4, 4),
-    SHADER_TILE(8, 2, 1, 8, 8, 1), SHADER_TILE(8, 2, 1, 8, 8, 2), SHADER_TILE(8, 2, 1, 8, 8, 4),
+    F16_SHADER_TILE(8, 2, 1, 4, 1, 1), F16_SHADER_TILE(8, 2, 1, 4, 1, 2), F16_SHADER_TILE(8, 2, 1, 4, 1, 4),
+    F16_SHADER_TILE(8, 2, 1, 4, 2, 1), F16_SHADER_TILE(8, 2, 1, 4, 2, 2), F16_SHADER_TILE(8, 2, 1, 4, 2, 4),
+    F16_SHADER_TILE(8, 2, 1, 4, 4, 1), F16_SHADER_TILE(8, 2, 1, 4, 4, 2), F16_SHADER_TILE(8, 2, 1, 4, 4, 4),
 
     // workgroup size = (4, 4, 1)
-    SHADER_TILE(4, 4, 1, 1, 1, 1), SHADER_TILE(4, 4, 1, 1, 1, 2), SHADER_TILE(4, 4, 1, 1, 1, 4),
-    SHADER_TILE(4, 4, 1, 1, 2, 1), SHADER_TILE(4, 4, 1, 1, 2, 2), SHADER_TILE(4, 4, 1, 1, 2, 4),
-    SHADER_TILE(4, 4, 1, 1, 4, 1), SHADER_TILE(4, 4, 1, 1, 4, 2), SHADER_TILE(4, 4, 1, 1, 4, 4),
-    SHADER_TILE(4, 4, 1, 1, 8, 1), SHADER_TILE(4, 4, 1, 1, 8, 2), SHADER_TILE(4, 4, 1, 1, 8, 4),
+    F16_SHADER_TILE(4, 4, 1, 1, 1, 1), F16_SHADER_TILE(4, 4, 1, 1, 1, 2), F16_SHADER_TILE(4, 4, 1, 1, 1, 4),
+    F16_SHADER_TILE(4, 4, 1, 1, 2, 1), F16_SHADER_TILE(4, 4, 1, 1, 2, 2), F16_SHADER_TILE(4, 4, 1, 1, 2, 4),
+    F16_SHADER_TILE(4, 4, 1, 1, 4, 1), F16_SHADER_TILE(4, 4, 1, 1, 4, 2), F16_SHADER_TILE(4, 4, 1, 1, 4, 4),
+    F16_SHADER_TILE(4, 4, 1, 1, 8, 1), F16_SHADER_TILE(4, 4, 1, 1, 8, 2), F16_SHADER_TILE(4, 4, 1, 1, 8, 4),
 
-    SHADER_TILE(4, 4, 1, 2, 1, 1), SHADER_TILE(4, 4, 1, 2, 1, 2), SHADER_TILE(4, 4, 1, 2, 1, 4),
-    SHADER_TILE(4, 4, 1, 2, 2, 1), SHADER_TILE(4, 4, 1, 2, 2, 2), SHADER_TILE(4, 4, 1, 2, 2, 4),
-    SHADER_TILE(4, 4, 1, 2, 4, 1), SHADER_TILE(4, 4, 1, 2, 4, 2), SHADER_TILE(4, 4, 1, 2, 4, 4),
-    SHADER_TILE(4, 4, 1, 2, 8, 1), SHADER_TILE(4, 4, 1, 2, 8, 2), SHADER_TILE(4, 4, 1, 2, 8, 4),
+    F16_SHADER_TILE(4, 4, 1, 2, 1, 1), F16_SHADER_TILE(4, 4, 1, 2, 1, 2), F16_SHADER_TILE(4, 4, 1, 2, 1, 4),
+    F16_SHADER_TILE(4, 4, 1, 2, 2, 1), F16_SHADER_TILE(4, 4, 1, 2, 2, 2), F16_SHADER_TILE(4, 4, 1, 2, 2, 4),
+    F16_SHADER_TILE(4, 4, 1, 2, 4, 1), F16_SHADER_TILE(4, 4, 1, 2, 4, 2), F16_SHADER_TILE(4, 4, 1, 2, 4, 4),
+    F16_SHADER_TILE(4, 4, 1, 2, 8, 1), F16_SHADER_TILE(4, 4, 1, 2, 8, 2), F16_SHADER_TILE(4, 4, 1, 2, 8, 4),
 
-    SHADER_TILE(4, 4, 1, 4, 1, 1), SHADER_TILE(4, 4, 1, 4, 1, 2), SHADER_TILE(4, 4, 1, 4, 1, 4),
-    SHADER_TILE(4, 4, 1, 4, 2, 1), SHADER_TILE(4, 4, 1, 4, 2, 2), SHADER_TILE(4, 4, 1, 4, 2, 4),
-    SHADER_TILE(4, 4, 1, 4, 4, 1), SHADER_TILE(4, 4, 1, 4, 4, 2), SHADER_TILE(4, 4, 1, 4, 4, 4),
-    SHADER_TILE(4, 4, 1, 4, 8, 1), SHADER_TILE(4, 4, 1, 4, 8, 2), SHADER_TILE(4, 4, 1, 4, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 8, 1, 1), SHADER_TILE(4, 4, 1, 8, 1, 2), SHADER_TILE(4, 4, 1, 8, 1, 4),
-    SHADER_TILE(4, 4, 1, 8, 2, 1), SHADER_TILE(4, 4, 1, 8, 2, 2), SHADER_TILE(4, 4, 1, 8, 2, 4),
-    SHADER_TILE(4, 4, 1, 8, 4, 1), SHADER_TILE(4, 4, 1, 8, 4, 2), SHADER_TILE(4, 4, 1, 8, 4, 4),
-    SHADER_TILE(4, 4, 1, 8, 8, 1), SHADER_TILE(4, 4, 1, 8, 8, 2), SHADER_TILE(4, 4, 1, 8, 8, 4),
+    F16_SHADER_TILE(4, 4, 1, 4, 1, 1), F16_SHADER_TILE(4, 4, 1, 4, 1, 2), F16_SHADER_TILE(4, 4, 1, 4, 1, 4),
+    F16_SHADER_TILE(4, 4, 1, 4, 2, 1), F16_SHADER_TILE(4, 4, 1, 4, 2, 2), F16_SHADER_TILE(4, 4, 1, 4, 2, 4),
+    F16_SHADER_TILE(4, 4, 1, 4, 4, 1), F16_SHADER_TILE(4, 4, 1, 4, 4, 2), F16_SHADER_TILE(4, 4, 1, 4, 4, 4),
 
     // workgroup size = (4, 2, 2)
-    SHADER_TILE(4, 2, 2, 1, 1, 1), SHADER_TILE(4, 2, 2, 1, 1, 2), SHADER_TILE(4, 2, 2, 1, 1, 4),
-    SHADER_TILE(4, 2, 2, 1, 2, 1), SHADER_TILE(4, 2, 2, 1, 2, 2), SHADER_TILE(4, 2, 2, 1, 2, 4),
-    SHADER_TILE(4, 2, 2, 1, 4, 1), SHADER_TILE(4, 2, 2, 1, 4, 2), SHADER_TILE(4, 2, 2, 1, 4, 4),
-    SHADER_TILE(4, 2, 2, 1, 8, 1), SHADER_TILE(4, 2, 2, 1, 8, 2), SHADER_TILE(4, 2, 2, 1, 8, 4),
+    F16_SHADER_TILE(4, 2, 2, 1, 1, 1), F16_SHADER_TILE(4, 2, 2, 1, 1, 2), F16_SHADER_TILE(4, 2, 2, 1, 1, 4),
+    F16_SHADER_TILE(4, 2, 2, 1, 2, 1), F16_SHADER_TILE(4, 2, 2, 1, 2, 2), F16_SHADER_TILE(4, 2, 2, 1, 2, 4),
+    F16_SHADER_TILE(4, 2, 2, 1, 4, 1), F16_SHADER_TILE(4, 2, 2, 1, 4, 2), F16_SHADER_TILE(4, 2, 2, 1, 4, 4),
+    F16_SHADER_TILE(4, 2, 2, 1, 8, 1), F16_SHADER_TILE(4, 2, 2, 1, 8, 2), F16_SHADER_TILE(4, 2, 2, 1, 8, 4),
 
-    SHADER_TILE(4, 2, 2, 2, 1, 1), SHADER_TILE(4, 2, 2, 2, 1, 2), SHADER_TILE(4, 2, 2, 2, 1, 4),
-    SHADER_TILE(4, 2, 2, 2, 2, 1), SHADER_TILE(4, 2, 2, 2, 2, 2), SHADER_TILE(4, 2, 2, 2, 2, 4),
-    SHADER_TILE(4, 2, 2, 2, 4, 1), SHADER_TILE(4, 2, 2, 2, 4, 2), SHADER_TILE(4, 2, 2, 2, 4, 4),
-    SHADER_TILE(4, 2, 2, 2, 8, 1), SHADER_TILE(4, 2, 2, 2, 8, 2), SHADER_TILE(4, 2, 2, 2, 8, 4),
+    F16_SHADER_TILE(4, 2, 2, 2, 1, 1), F16_SHADER_TILE(4, 2, 2, 2, 1, 2), F16_SHADER_TILE(4, 2, 2, 2, 1, 4),
+    F16_SHADER_TILE(4, 2, 2, 2, 2, 1), F16_SHADER_TILE(4, 2, 2, 2, 2, 2), F16_SHADER_TILE(4, 2, 2, 2, 2, 4),
+    F16_SHADER_TILE(4, 2, 2, 2, 4, 1), F16_SHADER_TILE(4, 2, 2, 2, 4, 2), F16_SHADER_TILE(4, 2, 2, 2, 4, 4),
+    F16_SHADER_TILE(4, 2, 2, 2, 8, 1), F16_SHADER_TILE(4, 2, 2, 2, 8, 2), F16_SHADER_TILE(4, 2, 2, 2, 8, 4),
 
-    SHADER_TILE(4, 2, 2, 4, 1, 1), SHADER_TILE(4, 2, 2, 4, 1, 2), SHADER_TILE(4, 2, 2, 4, 1, 4),
-    SHADER_TILE(4, 2, 2, 4, 2, 1), SHADER_TILE(4, 2, 2, 4, 2, 2), SHADER_TILE(4, 2, 2, 4, 2, 4),
-    SHADER_TILE(4, 2, 2, 4, 4, 1), SHADER_TILE(4, 2, 2, 4, 4, 2), SHADER_TILE(4, 2, 2, 4, 4, 4),
-    SHADER_TILE(4, 2, 2, 4, 8, 1), SHADER_TILE(4, 2, 2, 4, 8, 2), SHADER_TILE(4, 2, 2, 4, 8, 4),
+    F16_SHADER_TILE(4, 2, 2, 4, 1, 1), F16_SHADER_TILE(4, 2, 2, 4, 1, 2), F16_SHADER_TILE(4, 2, 2, 4, 1, 4),
+    F16_SHADER_TILE(4, 2, 2, 4, 2, 1), F16_SHADER_TILE(4, 2, 2, 4, 2, 2), F16_SHADER_TILE(4, 2, 2, 4, 2, 4),
+    F16_SHADER_TILE(4, 2, 2, 4, 4, 1), F16_SHADER_TILE(4, 2, 2, 4, 4, 2), F16_SHADER_TILE(4, 2, 2, 4, 4, 4),
 
-    SHADER_TILE(4, 2, 2, 8, 1, 1), SHADER_TILE(4, 2, 2, 8, 1, 2), SHADER_TILE(4, 2, 2, 8, 1, 4),
-    SHADER_TILE(4, 2, 2, 8, 2, 1), SHADER_TILE(4, 2, 2, 8, 2, 2), SHADER_TILE(4, 2, 2, 8, 2, 4),
-    SHADER_TILE(4, 2, 2, 8, 4, 1), SHADER_TILE(4, 2, 2, 8, 4, 2), SHADER_TILE(4, 2, 2, 8, 4, 4),
-    SHADER_TILE(4, 2, 2, 8, 8, 1), SHADER_TILE(4, 2, 2, 8, 8, 2), SHADER_TILE(4, 2, 2, 8, 8, 4),
+    // workgroup size = (2, 4, 2)
+    F16_SHADER_TILE(2, 4, 2, 1, 1, 1), F16_SHADER_TILE(2, 4, 2, 1, 1, 2), F16_SHADER_TILE(2, 4, 2, 1, 1, 4),
+    F16_SHADER_TILE(2, 4, 2, 1, 2, 1), F16_SHADER_TILE(2, 4, 2, 1, 2, 2), F16_SHADER_TILE(2, 4, 2, 1, 2, 4),
+    F16_SHADER_TILE(2, 4, 2, 1, 4, 1), F16_SHADER_TILE(2, 4, 2, 1, 4, 2), F16_SHADER_TILE(2, 4, 2, 1, 4, 4),
+    F16_SHADER_TILE(2, 4, 2, 1, 8, 1), F16_SHADER_TILE(2, 4, 2, 1, 8, 2), F16_SHADER_TILE(2, 4, 2, 1, 8, 4),
 
-    // workgroup size = (32, 1, 1)
-    SHADER_TILE(32, 1, 1, 1, 1, 1), SHADER_TILE(32, 1, 1, 1, 1, 2), SHADER_TILE(32, 1, 1, 1, 1, 4),
-    SHADER_TILE(32, 1, 1, 1, 2, 1), SHADER_TILE(32, 1, 1, 1, 2, 2), SHADER_TILE(32, 1, 1, 1, 2, 4),
-    SHADER_TILE(32, 1, 1, 1, 4, 1), SHADER_TILE(32, 1, 1, 1, 4, 2), SHADER_TILE(32, 1, 1, 1, 4, 4),
-    SHADER_TILE(32, 1, 1, 1, 8, 1), SHADER_TILE(32, 1, 1, 1, 8, 2), SHADER_TILE(32, 1, 1, 1, 8, 4),
+    F16_SHADER_TILE(2, 4, 2, 2, 1, 1), F16_SHADER_TILE(2, 4, 2, 2, 1, 2), F16_SHADER_TILE(2, 4, 2, 2, 1, 4),
+    F16_SHADER_TILE(2, 4, 2, 2, 2, 1), F16_SHADER_TILE(2, 4, 2, 2, 2, 2), F16_SHADER_TILE(2, 4, 2, 2, 2, 4),
+    F16_SHADER_TILE(2, 4, 2, 2, 4, 1), F16_SHADER_TILE(2, 4, 2, 2, 4, 2), F16_SHADER_TILE(2, 4, 2, 2, 4, 4),
+    F16_SHADER_TILE(2, 4, 2, 2, 8, 1), F16_SHADER_TILE(2, 4, 2, 2, 8, 2), F16_SHADER_TILE(2, 4, 2, 2, 8, 4),
 
-    SHADER_TILE(32, 1, 1, 2, 1, 1), SHADER_TILE(32, 1, 1, 2, 1, 2), SHADER_TILE(32, 1, 1, 2, 1, 4),
-    SHADER_TILE(32, 1, 1, 2, 2, 1), SHADER_TILE(32, 1, 1, 2, 2, 2), SHADER_TILE(32, 1, 1, 2, 2, 4),
-    SHADER_TILE(32, 1, 1, 2, 4, 1), SHADER_TILE(32, 1, 1, 2, 4, 2), SHADER_TILE(32, 1, 1, 2, 4, 4),
-    SHADER_TILE(32, 1, 1, 2, 8, 1), SHADER_TILE(32, 1, 1, 2, 8, 2), SHADER_TILE(32, 1, 1, 2, 8, 4),
-
-    SHADER_TILE(32, 1, 1, 4, 1, 1), SHADER_TILE(32, 1, 1, 4, 1, 2), SHADER_TILE(32, 1, 1, 4, 1, 4),
-    SHADER_TILE(32, 1, 1, 4, 2, 1), SHADER_TILE(32, 1, 1, 4, 2, 2), SHADER_TILE(32, 1, 1, 4, 2, 4),
-    SHADER_TILE(32, 1, 1, 4, 4, 1), SHADER_TILE(32, 1, 1, 4, 4, 2), SHADER_TILE(32, 1, 1, 4, 4, 4),
-    SHADER_TILE(32, 1, 1, 4, 8, 1), SHADER_TILE(32, 1, 1, 4, 8, 2), SHADER_TILE(32, 1, 1, 4, 8, 4),
-
-    SHADER_TILE(32, 1, 1, 8, 1, 1), SHADER_TILE(32, 1, 1, 8, 1, 2), SHADER_TILE(32, 1, 1, 8, 1, 4),
-    SHADER_TILE(32, 1, 1, 8, 2, 1), SHADER_TILE(32, 1, 1, 8, 2, 2), SHADER_TILE(32, 1, 1, 8, 2, 4),
-    SHADER_TILE(32, 1, 1, 8, 4, 1), SHADER_TILE(32, 1, 1, 8, 4, 2), SHADER_TILE(32, 1, 1, 8, 4, 4),
-    SHADER_TILE(32, 1, 1, 8, 8, 1), SHADER_TILE(32, 1, 1, 8, 8, 2), SHADER_TILE(32, 1, 1, 8, 8, 4),
-
-    // workgroup size = (16, 2, 1)
-    SHADER_TILE(16, 2, 1, 1, 1, 1), SHADER_TILE(16, 2, 1, 1, 1, 2), SHADER_TILE(16, 2, 1, 1, 1, 4),
-    SHADER_TILE(16, 2, 1, 1, 2, 1), SHADER_TILE(16, 2, 1, 1, 2, 2), SHADER_TILE(16, 2, 1, 1, 2, 4),
-    SHADER_TILE(16, 2, 1, 1, 4, 1), SHADER_TILE(16, 2, 1, 1, 4, 2), SHADER_TILE(16, 2, 1, 1, 4, 4),
-    SHADER_TILE(16, 2, 1, 1, 8, 1), SHADER_TILE(16, 2, 1, 1, 8, 2), SHADER_TILE(16, 2, 1, 1, 8, 4),
-
-    SHADER_TILE(16, 2, 1, 2, 1, 1), SHADER_TILE(16, 2, 1, 2, 1, 2), SHADER_TILE(16, 2, 1, 2, 1, 4),
-    SHADER_TILE(16, 2, 1, 2, 2, 1), SHADER_TILE(16, 2, 1, 2, 2, 2), SHADER_TILE(16, 2, 1, 2, 2, 4),
-    SHADER_TILE(16, 2, 1, 2, 4, 1), SHADER_TILE(16, 2, 1, 2, 4, 2), SHADER_TILE(16, 2, 1, 2, 4, 4),
-    SHADER_TILE(16, 2, 1, 2, 8, 1), SHADER_TILE(16, 2, 1, 2, 8, 2), SHADER_TILE(16, 2, 1, 2, 8, 4),
-
-    SHADER_TILE(16, 2, 1, 4, 1, 1), SHADER_TILE(16, 2, 1, 4, 1, 2), SHADER_TILE(16, 2, 1, 4, 1, 4),
-    SHADER_TILE(16, 2, 1, 4, 2, 1), SHADER_TILE(16, 2, 1, 4, 2, 2), SHADER_TILE(16, 2, 1, 4, 2, 4),
-    SHADER_TILE(16, 2, 1, 4, 4, 1), SHADER_TILE(16, 2, 1, 4, 4, 2), SHADER_TILE(16, 2, 1, 4, 4, 4),
-    SHADER_TILE(16, 2, 1, 4, 8, 1), SHADER_TILE(16, 2, 1, 4, 8, 2), SHADER_TILE(16, 2, 1, 4, 8, 4),
-
-    SHADER_TILE(16, 2, 1, 8, 1, 1), SHADER_TILE(16, 2, 1, 8, 1, 2), SHADER_TILE(16, 2, 1, 8, 1, 4),
-    SHADER_TILE(16, 2, 1, 8, 2, 1), SHADER_TILE(16, 2, 1, 8, 2, 2), SHADER_TILE(16, 2, 1, 8, 2, 4),
-    SHADER_TILE(16, 2, 1, 8, 4, 1), SHADER_TILE(16, 2, 1, 8, 4, 2), SHADER_TILE(16, 2, 1, 8, 4, 4),
-    SHADER_TILE(16, 2, 1, 8, 8, 1), SHADER_TILE(16, 2, 1, 8, 8, 2), SHADER_TILE(16, 2, 1, 8, 8, 4),
-
-    // workgroup size = (8, 4, 1)
-    SHADER_TILE(8, 4, 1, 1, 1, 1), SHADER_TILE(8, 4, 1, 1, 1, 2), SHADER_TILE(8, 4, 1, 1, 1, 4),
-    SHADER_TILE(8, 4, 1, 1, 2, 1), SHADER_TILE(8, 4, 1, 1, 2, 2), SHADER_TILE(8, 4, 1, 1, 2, 4),
-    SHADER_TILE(8, 4, 1, 1, 4, 1), SHADER_TILE(8, 4, 1, 1, 4, 2), SHADER_TILE(8, 4, 1, 1, 4, 4),
-    SHADER_TILE(8, 4, 1, 1, 8, 1), SHADER_TILE(8, 4, 1, 1, 8, 2), SHADER_TILE(8, 4, 1, 1, 8, 4),
-
-    SHADER_TILE(8, 4, 1, 2, 1, 1), SHADER_TILE(8, 4, 1, 2, 1, 2), SHADER_TILE(8, 4, 1, 2, 1, 4),
-    SHADER_TILE(8, 4, 1, 2, 2, 1), SHADER_TILE(8, 4, 1, 2, 2, 2), SHADER_TILE(8, 4, 1, 2, 2, 4),
-    SHADER_TILE(8, 4, 1, 2, 4, 1), SHADER_TILE(8, 4, 1, 2, 4, 2), SHADER_TILE(8, 4, 1, 2, 4, 4),
-    SHADER_TILE(8, 4, 1, 2, 8, 1), SHADER_TILE(8, 4, 1, 2, 8, 2), SHADER_TILE(8, 4, 1, 2, 8, 4),
-
-    SHADER_TILE(8, 4, 1, 4, 1, 1), SHADER_TILE(8, 4, 1, 4, 1, 2), SHADER_TILE(8, 4, 1, 4, 1, 4),
-    SHADER_TILE(8, 4, 1, 4, 2, 1), SHADER_TILE(8, 4, 1, 4, 2, 2), SHADER_TILE(8, 4, 1, 4, 2, 4),
-    SHADER_TILE(8, 4, 1, 4, 4, 1), SHADER_TILE(8, 4, 1, 4, 4, 2), SHADER_TILE(8, 4, 1, 4, 4, 4),
-    SHADER_TILE(8, 4, 1, 4, 8, 1), SHADER_TILE(8, 4, 1, 4, 8, 2), SHADER_TILE(8, 4, 1, 4, 8, 4),
-
-    SHADER_TILE(8, 4, 1, 8, 1, 1), SHADER_TILE(8, 4, 1, 8, 1, 2), SHADER_TILE(8, 4, 1, 8, 1, 4),
-    SHADER_TILE(8, 4, 1, 8, 2, 1), SHADER_TILE(8, 4, 1, 8, 2, 2), SHADER_TILE(8, 4, 1, 8, 2, 4),
-    SHADER_TILE(8, 4, 1, 8, 4, 1), SHADER_TILE(8, 4, 1, 8, 4, 2), SHADER_TILE(8, 4, 1, 8, 4, 4),
-    SHADER_TILE(8, 4, 1, 8, 8, 1), SHADER_TILE(8, 4, 1, 8, 8, 2), SHADER_TILE(8, 4, 1, 8, 8, 4),
-
-    // workgroup size = (8, 2, 2)
-    SHADER_TILE(8, 2, 2, 1, 1, 1), SHADER_TILE(8, 2, 2, 1, 1, 2), SHADER_TILE(8, 2, 2, 1, 1, 4),
-    SHADER_TILE(8, 2, 2, 1, 2, 1), SHADER_TILE(8, 2, 2, 1, 2, 2), SHADER_TILE(8, 2, 2, 1, 2, 4),
-    SHADER_TILE(8, 2, 2, 1, 4, 1), SHADER_TILE(8, 2, 2, 1, 4, 2), SHADER_TILE(8, 2, 2, 1, 4, 4),
-    SHADER_TILE(8, 2, 2, 1, 8, 1), SHADER_TILE(8, 2, 2, 1, 8, 2), SHADER_TILE(8, 2, 2, 1, 8, 4),
-
-    SHADER_TILE(8, 2, 2, 2, 1, 1), SHADER_TILE(8, 2, 2, 2, 1, 2), SHADER_TILE(8, 2, 2, 2, 1, 4),
-    SHADER_TILE(8, 2, 2, 2, 2, 1), SHADER_TILE(8, 2, 2, 2, 2, 2), SHADER_TILE(8, 2, 2, 2, 2, 4),
-    SHADER_TILE(8, 2, 2, 2, 4, 1), SHADER_TILE(8, 2, 2, 2, 4, 2), SHADER_TILE(8, 2, 2, 2, 4, 4),
-    SHADER_TILE(8, 2, 2, 2, 8, 1), SHADER_TILE(8, 2, 2, 2, 8, 2), SHADER_TILE(8, 2, 2, 2, 8, 4),
-
-    SHADER_TILE(8, 2, 2, 4, 1, 1), SHADER_TILE(8, 2, 2, 4, 1, 2), SHADER_TILE(8, 2, 2, 4, 1, 4),
-    SHADER_TILE(8, 2, 2, 4, 2, 1), SHADER_TILE(8, 2, 2, 4, 2, 2), SHADER_TILE(8, 2, 2, 4, 2, 4),
-    SHADER_TILE(8, 2, 2, 4, 4, 1), SHADER_TILE(8, 2, 2, 4, 4, 2), SHADER_TILE(8, 2, 2, 4, 4, 4),
-    SHADER_TILE(8, 2, 2, 4, 8, 1), SHADER_TILE(8, 2, 2, 4, 8, 2), SHADER_TILE(8, 2, 2, 4, 8, 4),
-
-    SHADER_TILE(8, 2, 2, 8, 1, 1), SHADER_TILE(8, 2, 2, 8, 1, 2), SHADER_TILE(8, 2, 2, 8, 1, 4),
-    SHADER_TILE(8, 2, 2, 8, 2, 1), SHADER_TILE(8, 2, 2, 8, 2, 2), SHADER_TILE(8, 2, 2, 8, 2, 4),
-    SHADER_TILE(8, 2, 2, 8, 4, 1), SHADER_TILE(8, 2, 2, 8, 4, 2), SHADER_TILE(8, 2, 2, 8, 4, 4),
-    SHADER_TILE(8, 2, 2, 8, 8, 1), SHADER_TILE(8, 2, 2, 8, 8, 2), SHADER_TILE(8, 2, 2, 8, 8, 4),
-
-    // workgroup size = (4, 4, 1)
-    SHADER_TILE(4, 4, 1, 1, 1, 1), SHADER_TILE(4, 4, 1, 1, 1, 2), SHADER_TILE(4, 4, 1, 1, 1, 4),
-    SHADER_TILE(4, 4, 1, 1, 2, 1), SHADER_TILE(4, 4, 1, 1, 2, 2), SHADER_TILE(4, 4, 1, 1, 2, 4),
-    SHADER_TILE(4, 4, 1, 1, 4, 1), SHADER_TILE(4, 4, 1, 1, 4, 2), SHADER_TILE(4, 4, 1, 1, 4, 4),
-    SHADER_TILE(4, 4, 1, 1, 8, 1), SHADER_TILE(4, 4, 1, 1, 8, 2), SHADER_TILE(4, 4, 1, 1, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 2, 1, 1), SHADER_TILE(4, 4, 1, 2, 1, 2), SHADER_TILE(4, 4, 1, 2, 1, 4),
-    SHADER_TILE(4, 4, 1, 2, 2, 1), SHADER_TILE(4, 4, 1, 2, 2, 2), SHADER_TILE(4, 4, 1, 2, 2, 4),
-    SHADER_TILE(4, 4, 1, 2, 4, 1), SHADER_TILE(4, 4, 1, 2, 4, 2), SHADER_TILE(4, 4, 1, 2, 4, 4),
-    SHADER_TILE(4, 4, 1, 2, 8, 1), SHADER_TILE(4, 4, 1, 2, 8, 2), SHADER_TILE(4, 4, 1, 2, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 4, 1, 1), SHADER_TILE(4, 4, 1, 4, 1, 2), SHADER_TILE(4, 4, 1, 4, 1, 4),
-    SHADER_TILE(4, 4, 1, 4, 2, 1), SHADER_TILE(4, 4, 1, 4, 2, 2), SHADER_TILE(4, 4, 1, 4, 2, 4),
-    SHADER_TILE(4, 4, 1, 4, 4, 1), SHADER_TILE(4, 4, 1, 4, 4, 2), SHADER_TILE(4, 4, 1, 4, 4, 4),
-    SHADER_TILE(4, 4, 1, 4, 8, 1), SHADER_TILE(4, 4, 1, 4, 8, 2), SHADER_TILE(4, 4, 1, 4, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 8, 1, 1), SHADER_TILE(4, 4, 1, 8, 1, 2), SHADER_TILE(4, 4, 1, 8, 1, 4),
-    SHADER_TILE(4, 4, 1, 8, 2, 1), SHADER_TILE(4, 4, 1, 8, 2, 2), SHADER_TILE(4, 4, 1, 8, 2, 4),
-    SHADER_TILE(4, 4, 1, 8, 4, 1), SHADER_TILE(4, 4, 1, 8, 4, 2), SHADER_TILE(4, 4, 1, 8, 4, 4),
-    SHADER_TILE(4, 4, 1, 8, 8, 1), SHADER_TILE(4, 4, 1, 8, 8, 2), SHADER_TILE(4, 4, 1, 8, 8, 4),
+    F16_SHADER_TILE(2, 4, 2, 4, 1, 1), F16_SHADER_TILE(2, 4, 2, 4, 1, 2), F16_SHADER_TILE(2, 4, 2, 4, 1, 4),
+    F16_SHADER_TILE(2, 4, 2, 4, 2, 1), F16_SHADER_TILE(2, 4, 2, 4, 2, 2), F16_SHADER_TILE(2, 4, 2, 4, 2, 4),
+    F16_SHADER_TILE(2, 4, 2, 4, 4, 1), F16_SHADER_TILE(2, 4, 2, 4, 4, 2), F16_SHADER_TILE(2, 4, 2, 4, 4, 4),
     // clang-format on
 };
+#undef F16_SHADER_TILE
+#undef F32_SHADER_TILE
 #undef SHADER_TILE
 
 struct DataScaleCase {
@@ -259,7 +157,7 @@ struct DataScaleCase {
 
 static DataScaleCase kDataCases[] = {
     {258, 258, 16, 3, 3, 64, 1, 1},
-    {513, 513, 16, 3, 3, 64, 2, 2},
+    //{513, 513, 16, 3, 3, 64, 2, 2},
 };
 
 static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
@@ -268,7 +166,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    int input_w, int input_c, int filter_h, int filter_w,
                    int output_c, int stride_h, int stride_w, int wg_size_x,
                    int wg_size_y, int wg_size_z, int wg_tile_oh, int wg_tile_ow,
-                   int wg_tile_oc) {
+                   int wg_tile_oc, Precision precision) {
   int output_h = (input_h - filter_h) / stride_h + 1;
   int output_w = (input_w - filter_w) / stride_w + 1;
 
@@ -318,9 +216,10 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Create buffers
   //===---------------------------------------------------------------------===/
 
-  size_t input_size = input_h * input_w * input_c * sizeof(float);
-  size_t filter_size = filter_h * filter_w * input_c * output_c * sizeof(float);
-  size_t output_size = output_h * output_w * output_c * sizeof(float);
+  size_t input_size = input_h * input_w * input_c * GetSize(precision);
+  size_t filter_size =
+      filter_h * filter_w * input_c * output_c * GetSize(precision);
+  size_t output_size = output_h * output_w * output_c * GetSize(precision);
 
   BM_CHECK_OK_AND_ASSIGN(
       auto input_buffer,
@@ -342,43 +241,79 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Set source buffer data
   //===---------------------------------------------------------------------===/
 
-  auto generateInputData = [](int h, int w, int c) {
-    return float(h % 17) * 0.5f + float(w % 13) * 0.5f + float(c % 9) * 0.25f;
+  auto generateInputData = [](int h, int w, int c) -> float {
+    return float(h % 3) * 0.5f + float(w % 5) * 0.25f + float(c % 3) * 0.25f;
   };
-  auto generateFilterData = [](int h, int w, int ic, int oc) {
-    return float(h % 5) * 0.25f + float(w % 7) * 0.25f +
-           float(ic % 21) * 0.25f + float(oc % 13) * 0.5f;
+  auto generateFilterData = [](int h, int w, int ic, int oc) -> float {
+    return float(h % 3) * 0.25f + float(w % 5) * 0.25f + float(ic % 3) * 0.25f +
+           float(oc % 5) * 0.25f;
   };
 
-  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
-      device, input_buffer.get(), input_size, [&](void *ptr, size_t num_bytes) {
-        float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        for (int ih = 0; ih < input_h; ++ih) {
-          for (int iw = 0; iw < input_w; ++iw) {
-            for (int ic = 0; ic < input_c; ++ic) {
-              int offset = ih * input_w * input_c + iw * input_c + ic;
-              src_float_buffer[offset] = generateInputData(ih, iw, ic);
-            }
-          }
-        }
-      }));
-
-  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
-      device, filter_buffer.get(), filter_size,
-      [&](void *ptr, size_t num_bytes) {
-        float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        for (int fh = 0; fh < filter_h; ++fh) {
-          for (int fw = 0; fw < filter_w; ++fw) {
-            for (int ic = 0; ic < input_c; ++ic) {
-              for (int oc = 0; oc < output_c; ++oc) {
-                int offset = fh * filter_w * input_c * output_c +
-                             fw * input_c * output_c + ic * output_c + oc;
-                src_float_buffer[offset] = generateFilterData(fh, fw, ic, oc);
+  if (precision == Precision::fp16) {
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, input_buffer.get(), input_size,
+        [&](void *ptr, size_t num_bytes) {
+          uint16_t *src_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (int ih = 0; ih < input_h; ++ih) {
+            for (int iw = 0; iw < input_w; ++iw) {
+              for (int ic = 0; ic < input_c; ++ic) {
+                int offset = ih * input_w * input_c + iw * input_c + ic;
+                src_float_buffer[offset] =
+                    fp16(generateInputData(ih, iw, ic)).getValue();
               }
             }
           }
-        }
-      }));
+        }));
+
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, filter_buffer.get(), filter_size,
+        [&](void *ptr, size_t num_bytes) {
+          uint16_t *src_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (int fh = 0; fh < filter_h; ++fh) {
+            for (int fw = 0; fw < filter_w; ++fw) {
+              for (int ic = 0; ic < input_c; ++ic) {
+                for (int oc = 0; oc < output_c; ++oc) {
+                  int offset = fh * filter_w * input_c * output_c +
+                               fw * input_c * output_c + ic * output_c + oc;
+                  src_float_buffer[offset] =
+                      fp16(generateFilterData(fh, fw, ic, oc)).getValue();
+                }
+              }
+            }
+          }
+        }));
+  } else if (precision == Precision::fp32) {
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, input_buffer.get(), input_size,
+        [&](void *ptr, size_t num_bytes) {
+          float *src_float_buffer = reinterpret_cast<float *>(ptr);
+          for (int ih = 0; ih < input_h; ++ih) {
+            for (int iw = 0; iw < input_w; ++iw) {
+              for (int ic = 0; ic < input_c; ++ic) {
+                int offset = ih * input_w * input_c + iw * input_c + ic;
+                src_float_buffer[offset] = generateInputData(ih, iw, ic);
+              }
+            }
+          }
+        }));
+
+    BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+        device, filter_buffer.get(), filter_size,
+        [&](void *ptr, size_t num_bytes) {
+          float *src_float_buffer = reinterpret_cast<float *>(ptr);
+          for (int fh = 0; fh < filter_h; ++fh) {
+            for (int fw = 0; fw < filter_w; ++fw) {
+              for (int ic = 0; ic < input_c; ++ic) {
+                for (int oc = 0; oc < output_c; ++oc) {
+                  int offset = fh * filter_w * input_c * output_c +
+                               fw * input_c * output_c + ic * output_c + oc;
+                  src_float_buffer[offset] = generateFilterData(fh, fw, ic, oc);
+                }
+              }
+            }
+          }
+        }));
+  }
 
   //===---------------------------------------------------------------------===/
   // Dispatch
@@ -416,36 +351,70 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Verify destination buffer data
   //===---------------------------------------------------------------------===/
 
-  BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
-      device, output_buffer.get(), output_size,
-      [&](void *ptr, size_t num_bytes) {
-        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
-        for (int oh = 0; oh < output_h; ++oh) {
-          for (int ow = 0; ow < output_w; ++ow) {
-            for (int oc = 0; oc < output_c; ++oc) {
-              float expected_value = 0.f;
-              for (int fh = 0; fh < filter_h; ++fh) {
-                for (int fw = 0; fw < filter_w; ++fw) {
-                  for (int ic = 0; ic < input_c; ++ic) {
-                    int ih = oh * stride_h + fh;
-                    int iw = ow * stride_w + fw;
-                    float input = generateInputData(ih, iw, ic);
-                    float filter = generateFilterData(fh, fw, ic, oc);
-                    expected_value += input * filter;
+  if (precision == Precision::fp16) {
+    BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
+        device, output_buffer.get(), output_size,
+        [&](void *ptr, size_t num_bytes) {
+          uint16_t *dst_float_buffer = reinterpret_cast<uint16_t *>(ptr);
+          for (int oh = 0; oh < output_h; ++oh) {
+            for (int ow = 0; ow < output_w; ++ow) {
+              for (int oc = 0; oc < output_c; ++oc) {
+                float expected_value = 0.f;
+                for (int fh = 0; fh < filter_h; ++fh) {
+                  for (int fw = 0; fw < filter_w; ++fw) {
+                    for (int ic = 0; ic < input_c; ++ic) {
+                      int ih = oh * stride_h + fh;
+                      int iw = ow * stride_w + fw;
+                      float input = generateInputData(ih, iw, ic);
+                      float filter = generateFilterData(fh, fw, ic, oc);
+                      expected_value += input * filter;
+                    }
                   }
                 }
-              }
 
-              int offset = oh * output_w * output_c + ow * output_c + oc;
-              BM_CHECK_EQ(dst_float_buffer[offset], expected_value)
-                  << "destination buffer element [" << oh << ", " << ow << ", "
-                  << oc << "]"
-                  << " has incorrect value: expected to be " << expected_value
-                  << " but found " << dst_float_buffer[offset];
+                int offset = oh * output_w * output_c + ow * output_c + oc;
+                float gpu_value = fp16(dst_float_buffer[offset]).toFloat();
+                BM_CHECK_FLOAT_EQ(gpu_value, expected_value, 2.0f)
+                    << "destination buffer element [" << oh << ", " << ow
+                    << ", " << oc << "]"
+                    << " has incorrect value: expected to be " << expected_value
+                    << " but found " << gpu_value;
+              }
             }
           }
-        }
-      }));
+        }));
+  } else if (precision == Precision::fp32) {
+    BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
+        device, output_buffer.get(), output_size,
+        [&](void *ptr, size_t num_bytes) {
+          float *dst_float_buffer = reinterpret_cast<float *>(ptr);
+          for (int oh = 0; oh < output_h; ++oh) {
+            for (int ow = 0; ow < output_w; ++ow) {
+              for (int oc = 0; oc < output_c; ++oc) {
+                float expected_value = 0.f;
+                for (int fh = 0; fh < filter_h; ++fh) {
+                  for (int fw = 0; fw < filter_w; ++fw) {
+                    for (int ic = 0; ic < input_c; ++ic) {
+                      int ih = oh * stride_h + fh;
+                      int iw = ow * stride_w + fw;
+                      float input = generateInputData(ih, iw, ic);
+                      float filter = generateFilterData(fh, fw, ic, oc);
+                      expected_value += input * filter;
+                    }
+                  }
+                }
+
+                int offset = oh * output_w * output_c + ow * output_c + oc;
+                BM_CHECK_EQ(dst_float_buffer[offset], expected_value)
+                    << "destination buffer element [" << oh << ", " << ow
+                    << ", " << oc << "]"
+                    << " has incorrect value: expected to be " << expected_value
+                    << " but found " << dst_float_buffer[offset];
+              }
+            }
+          }
+        }));
+  }
 
   //===---------------------------------------------------------------------===/
   // Benchmarking
@@ -561,7 +530,9 @@ void RegisterVulkanBenchmarks(
 
       std::string shader_name = absl::StrCat(
           "Tile[", wg_tile_oh, "x", wg_tile_ow, "x", wg_tile_oc, "]/WGSize[",
-          shader.wg_size_x, "x", shader.wg_size_y, "x", shader.wg_size_z, "]");
+          shader.wg_size_x, "x", shader.wg_size_y, "x", shader.wg_size_z,
+          "]/Precision[", (shader.precision == Precision::fp16 ? "f16" : "f32"),
+          "]");
 
       std::string test_name =
           absl::StrCat(gpu_name, "/", workload_name, "/", shader_name);
@@ -571,7 +542,8 @@ void RegisterVulkanBenchmarks(
           shader.code_num_bytes / sizeof(uint32_t), data.input_h, data.input_w,
           data.input_c, data.filter_h, data.filter_w, data.output_c,
           data.stride_h, data.stride_w, shader.wg_size_x, shader.wg_size_y,
-          shader.wg_size_z, wg_tile_oh, wg_tile_ow, wg_tile_oc)
+          shader.wg_size_z, wg_tile_oh, wg_tile_ow, wg_tile_oc,
+          shader.precision)
           ->UseManualTime()
           ->Unit(::benchmark::kMicrosecond);
     }

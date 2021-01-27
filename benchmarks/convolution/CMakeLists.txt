@@ -14,14 +14,28 @@
 
 uvkc_glsl_shader_permutation(
   NAME
-    conv2d_tiled_shader
+    conv2d_f32_tiled_shader
   SRC
     "conv2d_tiled.glsl"
   PERMUTATION
-    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}|{32,1,1}|{16,2,1}|{8,4,1}|{8,2,2}|{4,4,2}]"
-    "IVC_OH=[1|2|4|8]"
+    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}|{2,4,2}]"
+    "IVC_OH=[1|2|4]"
     "IVC_OW=[1|2|4|8]"
     "IVC_OC=[1|2|4]"
+    "VEC4TYPE=vec4"
+)
+
+uvkc_glsl_shader_permutation(
+  NAME
+    conv2d_f16_tiled_shader
+  SRC
+    "conv2d_tiled.glsl"
+  PERMUTATION
+    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}|{2,4,2}]"
+    "IVC_OH=[1|2|4]"
+    "IVC_OW=[1|2|4|8]"
+    "IVC_OC=[1|2|4]"
+    "VEC4TYPE=f16vec4"
 )
 
 uvkc_cc_binary(
@@ -30,8 +44,10 @@ uvkc_cc_binary(
   SRCS
     "conv2d_main.cc"
   DEPS
-    ::conv2d_tiled_shader
+    ::conv2d_f16_tiled_shader
+    ::conv2d_f32_tiled_shader
     benchmark::benchmark
+    uvkc::benchmark::fp16_util
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
 )
