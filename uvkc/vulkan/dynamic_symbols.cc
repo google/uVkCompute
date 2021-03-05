@@ -82,6 +82,8 @@ static const char *kVulkanLoaderSearchNames[] = {
     "libvulkan.so",
 #elif defined(UVKC_PLATFORM_WINDOWS)
     "vulkan-1.dll",
+#elif defined(UVKC_PLATFORM_MACOS)
+    "libvulkan.dylib",
 #else
     "libvulkan.so.1",
 #endif  // UVKC_PLATFORM_ANDROID
