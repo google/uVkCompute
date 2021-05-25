@@ -29,7 +29,7 @@ if(NOT Vulkan_GLSLC_EXECUTABLE)
   else(WIN32)
     find_program(Vulkan_GLSLC_EXECUTABLE
       NAME glslc
-      HINTS "$ENV{VULKAN_SDK}/bin")
+      HINTS "$ENV{VULKAN_SDK}/bin" "$ENV{ANDROID_NDK}/shader-tools/*")
   endif(WIN32)
 endif()
 
@@ -69,7 +69,7 @@ if(NOT Vulkan_SPIRVAS_EXECUTABLE)
   else(WIN32)
     find_program(Vulkan_SPIRVAS_EXECUTABLE
       NAME spirv-as
-      HINTS "$ENV{VULKAN_SDK}/bin")
+      HINTS "$ENV{VULKAN_SDK}/bin" "$ENV{ANDROID_NDK}/shader-tools/*")
   endif(WIN32)
 endif()
 
