@@ -8,10 +8,7 @@ layout(binding=0) buffer InputA { vec2 x[]; } inputA;
 layout(binding=1) buffer InputB { vec4 x[]; } inputB;
 layout(binding=2) buffer Output { uvec4 x[]; } outputO;
 
-const uint sX = 8;
-const uint sY = 2;
-
-layout(local_size_x = sX, local_size_y = sY, local_size_z = 1) in;
+layout(local_size_x = WG_X, local_size_y = WG_Y, local_size_z = 1) in;
 
 layout(constant_id = 0) const uint M = 1;
 layout(constant_id = 1) const uint N = 1;
@@ -21,8 +18,8 @@ const uint strideA = K;
 const uint strideB = N;
 const uint strideC = N;
 
-const uint C_ROWS = TILE_M / sY;
-const uint C_COLS = TILE_N / (4*sX);
+const uint C_ROWS = TILE_M / WG_Y;
+const uint C_COLS = TILE_N / (4*WG_X);
 
 layout(set = 0, binding = 3) uniform sampler2D texB;
 
@@ -48,7 +45,7 @@ void main()
     for (uint k = 0; k < K; k+=TILE_K) {
        [[unroll]] for (uint j = 0; j < C_COLS; j+=2) {
           [[unroll]] for (uint i = 0; i < TILE_K; ++i) {
-            uint gj = gID.x * TILE_N/4 + laneId.x*2 + j*sX;
+            uint gj = gID.x * TILE_N/4 + laneId.x*2 + j*WG_X;
             uint gk = k+i;
           #if (TEXTURE == 1)
             vec4 temp = texelFetch(texB, ivec2(gj/2, gk), 0);
@@ -67,7 +64,7 @@ void main()
         }
 
         [[unroll]] for (uint i = 0; i < C_ROWS; ++i) {
-          uint gi = gID.y * TILE_M + laneId.y + i*sY;
+          uint gi = gID.y * TILE_M + laneId.y + i*WG_Y;
           uint gk = k/4;
           [[unroll]] for (uint kk = 0; kk < TILE_K/4; kk++) {
             vec2 temp = inputA.x[coordToOffset(gi, gk+kk, strideA/4)];
@@ -88,8 +85,8 @@ void main()
 
     [[unroll]] for (uint i = 0; i < C_ROWS; ++i) {
         [[unroll]] for (uint j = 0; j < C_COLS; j+=2) {
-            uint gi = gID.y * TILE_M + laneId.y + i*sY;
-            uint gj = gID.x * TILE_N/4 + laneId.x*2 + j*sX;
+            uint gi = gID.y * TILE_M + laneId.y + i*WG_Y;
+            uint gj = gID.x * TILE_N/4 + laneId.x*2 + j*WG_X;
             uvec4 temp;
             temp.x = packFloat2x16(f16vec2(C[i][j].xy));
             temp.y = packFloat2x16(f16vec2(C[i][j].zw));

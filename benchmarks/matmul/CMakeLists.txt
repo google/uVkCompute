@@ -14,13 +14,15 @@
 
 uvkc_glsl_shader_permutation(
   NAME
-    matmul_tiled_shader
+    matmul_tiled_shader_f32
   SRC
-    "matmul_tiled.glsl"
+    "matmul_tiled_fp32.glsl"
   PERMUTATION
     "TILE_M=[2|4|8|16|32]"
     "TILE_N=[64|128]"
     "TILE_K=[4|8]"
+    "WG_X=16"
+    "WG_Y=1"
 )
 
 uvkc_glsl_shader_permutation(
@@ -33,6 +35,8 @@ uvkc_glsl_shader_permutation(
     "TILE_N=[64|128]"
     "TILE_K=[4|8]"
     "TEXTURE=[1|0]"
+    "WG_X=8"
+    "WG_Y=2"
 )
 
 uvkc_cc_binary(
@@ -41,8 +45,8 @@ uvkc_cc_binary(
   SRCS
     "matmul_tiled_main.cc"
   DEPS
-    ::matmul_tiled_shader
     ::matmul_tiled_shader_f16
+    ::matmul_tiled_shader_f32
     benchmark::benchmark
     uvkc::benchmark::fp16_util
     uvkc::benchmark::main
