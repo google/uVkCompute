@@ -34,8 +34,8 @@ using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "matmul_tiled";
 
-namespace matmul_tiled {
-#include "matmul_tiled_shader_spirv_permutation.inc"
+namespace matmul_tiled_f32 {
+#include "matmul_tiled_shader_f32_spirv_permutation.inc"
 }
 
 namespace matmul_tiled_f16 {
@@ -43,61 +43,78 @@ namespace matmul_tiled_f16 {
 }
 
 struct ShaderCode {
-  const char *name;       // Test case name
+  const char *name;       // Shader case name
   const uint32_t *code;   // SPIR-V code
   size_t code_num_bytes;  // Number of bytes for SPIR-V code
   int tileM;
   int tileN;
+  int tileK;
+  int wg_size_x;
+  int wg_size_y;
   Precision precision;
 };
 
-#define SHADER_TILE_F32(A, B, C)                               \
-  {#A "x" #B "x" #C "xf32",                                    \
-   matmul_tiled::TILE_M_##A##_TILE_N_##B##_TILE_K_##C,         \
-   sizeof(matmul_tiled::TILE_M_##A##_TILE_N_##B##_TILE_K_##C), \
-   A,                                                          \
-   B,                                                          \
-   Precision::fp32},
+#define SHADER_TILE_F32(M, N, K, X, Y)                                       \
+  {                                                                          \
+    "f32/Tile[" #M "x" #N "x" #K "]",                                        \
+        matmul_tiled_f32::                                                   \
+            TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_WG_X_##X##_WG_Y_##Y,      \
+        sizeof(                                                              \
+            matmul_tiled_f32::                                               \
+                TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_WG_X_##X##_WG_Y_##Y), \
+        M, N, K, X, Y, Precision::fp32                                       \
+  }
 
-#define SHADER_TILE_F16_TEX(A, B, C, T)                                       \
-  {#A "x" #B "x" #C "xf16-Texture=" #T,                                       \
-   matmul_tiled_f16::TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TEXTURE_##T,      \
-   sizeof(                                                                    \
-       matmul_tiled_f16::TILE_M_##A##_TILE_N_##B##_TILE_K_##C##_TEXTURE_##T), \
-   A,                                                                         \
-   B,                                                                         \
-   Precision::fp16},
+#define SHADER_TILE_F16_TEX(M, N, K, T, X, Y)                                              \
+  {                                                                                        \
+    "f16/Tile[" #M "x" #N "x" #K "]/Texture=" #T,                                          \
+        matmul_tiled_f16::                                                                 \
+            TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_TEXTURE_##T##_WG_X_##X##_WG_Y_##Y,      \
+        sizeof(                                                                            \
+            matmul_tiled_f16::                                                             \
+                TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_TEXTURE_##T##_WG_X_##X##_WG_Y_##Y), \
+        M, N, K, X, Y, Precision::fp16                                                     \
+  }
 
 // Try with and without texture.
-#define SHADER_TILE_F16(A, B, C) \
-  SHADER_TILE_F16_TEX(A, B, C, 1) SHADER_TILE_F16_TEX(A, B, C, 0)
-
-#define SHADER_TILE(A, B, C) SHADER_TILE_F32(A, B, C) SHADER_TILE_F16(A, B, C)
+#define SHADER_TILE_F16(M, N, K, X, Y) \
+  SHADER_TILE_F16_TEX(M, N, K, 1, X, Y), SHADER_TILE_F16_TEX(M, N, K, 0, X, Y)
 
 // clang-format off
 static ShaderCode kShaderCodeCases[] = {
   // TODO: re-enable non power of two tiles.
-  SHADER_TILE(2, 64, 4)
-  SHADER_TILE(4, 64, 4)
-  SHADER_TILE(8, 64, 4)
-  SHADER_TILE(16, 64, 4)
-  SHADER_TILE(32, 64, 4)
-  SHADER_TILE(2, 128, 4)
-  SHADER_TILE(4, 128, 4)
-  SHADER_TILE(8, 128, 4)
-  SHADER_TILE(16, 128, 4)
-  SHADER_TILE(32, 128, 4)
+  SHADER_TILE_F32(2, 64, 4, 16, 1),
+  SHADER_TILE_F32(4, 64, 4, 16, 1),
+  SHADER_TILE_F32(8, 64, 4, 16, 1),
+  SHADER_TILE_F32(16, 64, 4, 16, 1),
+  SHADER_TILE_F32(32, 64, 4, 16, 1),
+  SHADER_TILE_F32(2, 128, 4, 16, 1),
+  SHADER_TILE_F32(4, 128, 4, 16, 1),
+  SHADER_TILE_F32(8, 128, 4, 16, 1),
+  SHADER_TILE_F32(16, 128, 4, 16, 1),
+  SHADER_TILE_F32(32, 128, 4, 16, 1),
 
-  SHADER_TILE_F16(2, 64, 8)
-  SHADER_TILE_F16(4, 64, 8)
-  SHADER_TILE_F16(8, 64, 8)
-  SHADER_TILE_F16(16, 64, 8)
-  SHADER_TILE_F16(32, 64, 8)
-  SHADER_TILE_F16(2, 128, 8)
-  SHADER_TILE_F16(4, 128, 8)
-  SHADER_TILE_F16(8, 128, 8)
-  SHADER_TILE_F16(16, 128, 8)
-  SHADER_TILE_F16(32, 128, 8)
+  SHADER_TILE_F16(2, 64, 4, 8, 2),
+  SHADER_TILE_F16(4, 64, 4, 8, 2),
+  SHADER_TILE_F16(8, 64, 4, 8, 2),
+  SHADER_TILE_F16(16, 64, 4, 8, 2),
+  SHADER_TILE_F16(32, 64, 4, 8, 2),
+  SHADER_TILE_F16(2, 128, 4, 8, 2),
+  SHADER_TILE_F16(4, 128, 4, 8, 2),
+  SHADER_TILE_F16(8, 128, 4, 8, 2),
+  SHADER_TILE_F16(16, 128, 4, 8, 2),
+  SHADER_TILE_F16(32, 128, 4, 8, 2),
+
+  SHADER_TILE_F16(2, 64, 8, 8, 2),
+  SHADER_TILE_F16(4, 64, 8, 8, 2),
+  SHADER_TILE_F16(8, 64, 8, 8, 2),
+  SHADER_TILE_F16(16, 64, 8, 8, 2),
+  SHADER_TILE_F16(32, 64, 8, 8, 2),
+  SHADER_TILE_F16(2, 128, 8, 8, 2),
+  SHADER_TILE_F16(4, 128, 8, 8, 2),
+  SHADER_TILE_F16(8, 128, 8, 8, 2),
+  SHADER_TILE_F16(16, 128, 8, 8, 2),
+  SHADER_TILE_F16(32, 128, 8, 8, 2),
 };
 // clang-format on
 
@@ -402,9 +419,14 @@ void RegisterVulkanBenchmarks(
       if (shader.precision != precision) continue;
       int paddM = (M + shader.tileM - 1) / shader.tileM * shader.tileM;
       int paddN = (N + shader.tileN - 1) / shader.tileN * shader.tileN;
+      std::string matmul_size = absl::StrCat(M, "x", N, "x", K);
+      std::string tiling_scheme =
+          absl::StrCat(shader.tileM, "x", shader.tileN, "x", shader.tileK);
+      std::string workgroup_size =
+          absl::StrCat(shader.wg_size_x, "x", shader.wg_size_y, "x1");
       std::string test_name =
-          absl::StrCat(gpu_name, "/", shader.name, "/", M, "x", N, "x", K, "/",
-                       shader.tileM, "/", shader.tileN);
+          absl::StrCat(gpu_name, "/Matmul[", matmul_size, "]/", shader.name,
+                       "/Workgroup[", workgroup_size, "]");
       ::benchmark::RegisterBenchmark(
           test_name.c_str(), MatMul, device, latency_measure, shader.code,
           shader.code_num_bytes / sizeof(uint32_t), paddM, paddN, K,
