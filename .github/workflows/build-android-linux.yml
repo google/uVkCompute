@@ -1,4 +1,4 @@
-name: Build for Linux
+name: Build for Android and Linux
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  debug_build:
+  linux_debug_build:
     name: Linux Debug Build
     runs-on: ubuntu-20.04
     container:
@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: build
         run: ./tools/ci/build_linux.sh Debug
-  release_build:
+  linux_release_build:
     name: Linux Release Build
     runs-on: ubuntu-20.04
     container:
@@ -31,3 +31,14 @@ jobs:
     steps:
       - name: build
         run: ./tools/ci/build_linux.sh Release
+  android_release_build:
+    name: Linux Release Build
+    runs-on: ubuntu-20.04
+    container:
+      image: antiagainst/uvkcompute-ci:latest
+      volumes:
+        - $PWD:/usr/src/uVkCompute
+      options: --workdir=/usr/src/uVkCompute
+    steps:
+      - name: build
+        run: ./tools/ci/build_android.sh
