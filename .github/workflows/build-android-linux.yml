@@ -14,9 +14,6 @@ jobs:
     runs-on: ubuntu-20.04
     container:
       image: antiagainst/uvkcompute-ci:latest
-      volumes:
-        - /home/runner/work/uVkCompute/uVkCompute:/usr/src/uVkCompute
-      options: --workdir=/usr/src/uVkCompute
     steps:
       - name: build
         run: ./tools/ci/build_linux.sh Debug
@@ -25,9 +22,6 @@ jobs:
     runs-on: ubuntu-20.04
     container:
       image: antiagainst/uvkcompute-ci:latest
-      volumes:
-        - /home/runner/work/uVkCompute/uVkCompute:/usr/src/uVkCompute
-      options: --workdir=/usr/src/uVkCompute
     steps:
       - name: build
         run: ./tools/ci/build_linux.sh Release
@@ -36,9 +30,6 @@ jobs:
     runs-on: ubuntu-20.04
     container:
       image: antiagainst/uvkcompute-ci:latest
-      volumes:
-        - /home/runner/work/uVkCompute/uVkCompute:/usr/src/uVkCompute
-      options: --workdir=/usr/src/uVkCompute
     steps:
       - name: build
         run: ./tools/ci/build_android.sh
