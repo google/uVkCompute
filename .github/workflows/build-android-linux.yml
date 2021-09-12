@@ -15,7 +15,7 @@ jobs:
     container:
       image: antiagainst/uvkcompute-ci:latest
       volumes:
-        - $PWD:/usr/src/uVkCompute
+        - /home/runner/work/uVkCompute/uVkCompute:/usr/src/uVkCompute
       options: --workdir=/usr/src/uVkCompute
     steps:
       - name: build
@@ -26,7 +26,7 @@ jobs:
     container:
       image: antiagainst/uvkcompute-ci:latest
       volumes:
-        - $PWD:/usr/src/uVkCompute
+        - /home/runner/work/uVkCompute/uVkCompute:/usr/src/uVkCompute
       options: --workdir=/usr/src/uVkCompute
     steps:
       - name: build
@@ -37,7 +37,7 @@ jobs:
     container:
       image: antiagainst/uvkcompute-ci:latest
       volumes:
-        - $PWD:/usr/src/uVkCompute
+        - /home/runner/work/uVkCompute/uVkCompute:/usr/src/uVkCompute
       options: --workdir=/usr/src/uVkCompute
     steps:
       - name: build
