@@ -19,6 +19,8 @@ jobs:
         uses: actions/checkout@v2
       - name: build
         run: ./tools/ci/build_linux.sh Debug
+      - name: pwd, ls
+        run: pwd && ls -alh
 # linux_release_build:
 #   name: Linux Release Build
 #   runs-on: ubuntu-20.04
