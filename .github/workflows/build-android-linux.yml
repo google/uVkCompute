@@ -15,21 +15,23 @@ jobs:
     container:
       image: antiagainst/uvkcompute-ci:latest
     steps:
+      - name: ls
+        run: pwd && ls 
       - name: build
         run: ./tools/ci/build_linux.sh Debug
-  linux_release_build:
-    name: Linux Release Build
-    runs-on: ubuntu-20.04
-    container:
-      image: antiagainst/uvkcompute-ci:latest
-    steps:
-      - name: build
-        run: ./tools/ci/build_linux.sh Release
-  android_release_build:
-    name: Linux Release Build
-    runs-on: ubuntu-20.04
-    container:
-      image: antiagainst/uvkcompute-ci:latest
-    steps:
-      - name: build
-        run: ./tools/ci/build_android.sh
+# linux_release_build:
+#   name: Linux Release Build
+#   runs-on: ubuntu-20.04
+#   container:
+#     image: antiagainst/uvkcompute-ci:latest
+#   steps:
+#     - name: build
+#       run: ./tools/ci/build_linux.sh Release
+# android_release_build:
+#   name: Linux Release Build
+#   runs-on: ubuntu-20.04
+#   container:
+#     image: antiagainst/uvkcompute-ci:latest
+#   steps:
+#     - name: build
+#       run: ./tools/ci/build_android.sh
