@@ -30,7 +30,7 @@ jobs:
       - name: Build
         run: ./tools/ci/build_linux.sh Release
   android_release_build:
-    name: Linux Release Build
+    name: Android Release Build
     runs-on: ubuntu-20.04
     container:
       image: antiagainst/uvkcompute-ci:latest
