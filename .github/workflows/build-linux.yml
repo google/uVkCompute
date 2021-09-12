@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-20.04
     container:
       image: antiagainst/uvkcompute-ci:latest
-      volumes: $PWD:/usr/src/uVkCompute
+      volumes:
+        - $PWD:/usr/src/uVkCompute
       options: --workdir=/usr/src/uVkCompute
     steps:
       - name: build
@@ -24,7 +25,8 @@ jobs:
     runs-on: ubuntu-20.04
     container:
       image: antiagainst/uvkcompute-ci:latest
-      volumes: $PWD:/usr/src/uVkCompute
+      volumes:
+        - $PWD:/usr/src/uVkCompute
       options: --workdir=/usr/src/uVkCompute
     steps:
       - name: build
