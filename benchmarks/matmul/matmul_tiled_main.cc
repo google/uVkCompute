@@ -34,14 +34,6 @@ using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "matmul_tiled";
 
-namespace matmul_tiled_f32 {
-#include "matmul_tiled_shader_f32_spirv_permutation.inc"
-}
-
-namespace matmul_tiled_f16 {
-#include "matmul_tiled_shader_f16_spirv_permutation.inc"
-}
-
 struct ShaderCode {
   const char *name;       // Shader case name
   const uint32_t *code;   // SPIR-V code
@@ -80,43 +72,55 @@ struct ShaderCode {
 #define SHADER_TILE_F16(M, N, K, X, Y) \
   SHADER_TILE_F16_TEX(M, N, K, 1, X, Y), SHADER_TILE_F16_TEX(M, N, K, 0, X, Y)
 
-// clang-format off
+#define WORKGROUP_TILE_N_F32(X, Y, N)                                  \
+  SHADER_TILE_F32(2, N, 4, X, Y), SHADER_TILE_F32(4, N, 4, X, Y),      \
+      SHADER_TILE_F32(8, N, 4, X, Y), SHADER_TILE_F32(16, N, 4, X, Y), \
+      SHADER_TILE_F32(32, N, 4, X, Y), SHADER_TILE_F32(2, N, 8, X, Y), \
+      SHADER_TILE_F32(4, N, 8, X, Y), SHADER_TILE_F32(8, N, 8, X, Y),  \
+      SHADER_TILE_F32(16, N, 8, X, Y), SHADER_TILE_F32(32, N, 8, X, Y)
+
+#define WORKGROUP_TILE_N_F16(X, Y, N)                                  \
+  SHADER_TILE_F16(2, N, 4, X, Y), SHADER_TILE_F16(4, N, 4, X, Y),      \
+      SHADER_TILE_F16(8, N, 4, X, Y), SHADER_TILE_F16(16, N, 4, X, Y), \
+      SHADER_TILE_F16(32, N, 4, X, Y), SHADER_TILE_F16(2, N, 8, X, Y), \
+      SHADER_TILE_F16(4, N, 8, X, Y), SHADER_TILE_F16(8, N, 8, X, Y),  \
+      SHADER_TILE_F16(16, N, 8, X, Y), SHADER_TILE_F16(32, N, 8, X, Y)
+
+#if defined(UVKC_ADRENO)
+
+namespace matmul_tiled_f32 {
+#include "matmul_tiled_shader_f32_adreno_spirv_permutation.inc"
+}
+namespace matmul_tiled_f16 {
+#include "matmul_tiled_shader_f16_adreno_spirv_permutation.inc"
+}
+
 static ShaderCode kShaderCodeCases[] = {
-  // TODO: re-enable non power of two tiles.
-  SHADER_TILE_F32(2, 64, 4, 16, 1),
-  SHADER_TILE_F32(4, 64, 4, 16, 1),
-  SHADER_TILE_F32(8, 64, 4, 16, 1),
-  SHADER_TILE_F32(16, 64, 4, 16, 1),
-  SHADER_TILE_F32(32, 64, 4, 16, 1),
-  SHADER_TILE_F32(2, 128, 4, 16, 1),
-  SHADER_TILE_F32(4, 128, 4, 16, 1),
-  SHADER_TILE_F32(8, 128, 4, 16, 1),
-  SHADER_TILE_F32(16, 128, 4, 16, 1),
-  SHADER_TILE_F32(32, 128, 4, 16, 1),
-
-  SHADER_TILE_F16(2, 64, 4, 8, 2),
-  SHADER_TILE_F16(4, 64, 4, 8, 2),
-  SHADER_TILE_F16(8, 64, 4, 8, 2),
-  SHADER_TILE_F16(16, 64, 4, 8, 2),
-  SHADER_TILE_F16(32, 64, 4, 8, 2),
-  SHADER_TILE_F16(2, 128, 4, 8, 2),
-  SHADER_TILE_F16(4, 128, 4, 8, 2),
-  SHADER_TILE_F16(8, 128, 4, 8, 2),
-  SHADER_TILE_F16(16, 128, 4, 8, 2),
-  SHADER_TILE_F16(32, 128, 4, 8, 2),
-
-  SHADER_TILE_F16(2, 64, 8, 8, 2),
-  SHADER_TILE_F16(4, 64, 8, 8, 2),
-  SHADER_TILE_F16(8, 64, 8, 8, 2),
-  SHADER_TILE_F16(16, 64, 8, 8, 2),
-  SHADER_TILE_F16(32, 64, 8, 8, 2),
-  SHADER_TILE_F16(2, 128, 8, 8, 2),
-  SHADER_TILE_F16(4, 128, 8, 8, 2),
-  SHADER_TILE_F16(8, 128, 8, 8, 2),
-  SHADER_TILE_F16(16, 128, 8, 8, 2),
-  SHADER_TILE_F16(32, 128, 8, 8, 2),
+    WORKGROUP_TILE_N_F32(32, 2, 128),
+    WORKGROUP_TILE_N_F32(32, 2, 256),
+    WORKGROUP_TILE_N_F16(32, 2, 128),
+    WORKGROUP_TILE_N_F16(32, 2, 256),
 };
-// clang-format on
+
+#elif defined(UVKC_MALI_VALHALL)
+
+namespace matmul_tiled_f32 {
+#include "matmul_tiled_shader_f32_valhall_spirv_permutation.inc"
+}
+namespace matmul_tiled_f16 {
+#include "matmul_tiled_shader_f16_valhall_spirv_permutation.inc"
+}
+
+static ShaderCode kShaderCodeCases[] = {
+    WORKGROUP_TILE_N_F32(16, 1, 64),
+    WORKGROUP_TILE_N_F32(16, 1, 128),
+    WORKGROUP_TILE_N_F16(8, 2, 64),
+    WORKGROUP_TILE_N_F16(8, 2, 128),
+};
+
+#else
+#error "unsupported GPU architecture"
+#endif
 
 static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    const ::uvkc::benchmark::LatencyMeasure *latency_measure,
