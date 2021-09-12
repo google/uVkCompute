@@ -31,8 +31,6 @@ using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "depthwise_2d_convolution";
 
-#include "depthwise_conv2d_tiled_shader_spirv_permutation.inc"
-
 struct ShaderCode {
   const uint32_t *code;   // SPIR-V code
   size_t code_num_bytes;  // Number of bytes for SPIR-V code
@@ -52,198 +50,37 @@ struct ShaderCode {
         OH, OW, OC, X, Y, Z                                                            \
   }
 
+// clang-format off
+#define WORKGROUP_TILE(X, Y, Z) \
+  SHADER_TILE(X, Y, Z, 1, 1, 1), SHADER_TILE(X, Y, Z, 1, 2, 1), SHADER_TILE(X, Y, Z, 1, 4, 1), \
+  SHADER_TILE(X, Y, Z, 2, 1, 1), SHADER_TILE(X, Y, Z, 2, 2, 1), SHADER_TILE(X, Y, Z, 2, 4, 1), \
+  SHADER_TILE(X, Y, Z, 4, 1, 1), SHADER_TILE(X, Y, Z, 4, 2, 1), SHADER_TILE(X, Y, Z, 4, 4, 1)
+// clang-format on
+//
+#if defined(UVKC_ADRENO)
+
+#include "depthwise_conv2d_tiled_shader_adreno_spirv_permutation.inc"
+
 static ShaderCode kShaderCodeCases[] = {
-    // clang-format off
-    // workgroup size = (16, 1, 1)
-    SHADER_TILE(16, 1, 1, 1, 1, 1), SHADER_TILE(16, 1, 1, 1, 1, 2), SHADER_TILE(16, 1, 1, 1, 1, 4),
-    SHADER_TILE(16, 1, 1, 1, 2, 1), SHADER_TILE(16, 1, 1, 1, 2, 2), SHADER_TILE(16, 1, 1, 1, 2, 4),
-    SHADER_TILE(16, 1, 1, 1, 4, 1), SHADER_TILE(16, 1, 1, 1, 4, 2), SHADER_TILE(16, 1, 1, 1, 4, 4),
-    SHADER_TILE(16, 1, 1, 1, 8, 1), SHADER_TILE(16, 1, 1, 1, 8, 2), SHADER_TILE(16, 1, 1, 1, 8, 4),
-
-    SHADER_TILE(16, 1, 1, 2, 1, 1), SHADER_TILE(16, 1, 1, 2, 1, 2), SHADER_TILE(16, 1, 1, 2, 1, 4),
-    SHADER_TILE(16, 1, 1, 2, 2, 1), SHADER_TILE(16, 1, 1, 2, 2, 2), SHADER_TILE(16, 1, 1, 2, 2, 4),
-    SHADER_TILE(16, 1, 1, 2, 4, 1), SHADER_TILE(16, 1, 1, 2, 4, 2), SHADER_TILE(16, 1, 1, 2, 4, 4),
-    SHADER_TILE(16, 1, 1, 2, 8, 1), SHADER_TILE(16, 1, 1, 2, 8, 2), SHADER_TILE(16, 1, 1, 2, 8, 4),
-
-    SHADER_TILE(16, 1, 1, 4, 1, 1), SHADER_TILE(16, 1, 1, 4, 1, 2), SHADER_TILE(16, 1, 1, 4, 1, 4),
-    SHADER_TILE(16, 1, 1, 4, 2, 1), SHADER_TILE(16, 1, 1, 4, 2, 2), SHADER_TILE(16, 1, 1, 4, 2, 4),
-    SHADER_TILE(16, 1, 1, 4, 4, 1), SHADER_TILE(16, 1, 1, 4, 4, 2), SHADER_TILE(16, 1, 1, 4, 4, 4),
-    SHADER_TILE(16, 1, 1, 4, 8, 1), SHADER_TILE(16, 1, 1, 4, 8, 2), SHADER_TILE(16, 1, 1, 4, 8, 4),
-
-    SHADER_TILE(16, 1, 1, 8, 1, 1), SHADER_TILE(16, 1, 1, 8, 1, 2), SHADER_TILE(16, 1, 1, 8, 1, 4),
-    SHADER_TILE(16, 1, 1, 8, 2, 1), SHADER_TILE(16, 1, 1, 8, 2, 2), SHADER_TILE(16, 1, 1, 8, 2, 4),
-    SHADER_TILE(16, 1, 1, 8, 4, 1), SHADER_TILE(16, 1, 1, 8, 4, 2), SHADER_TILE(16, 1, 1, 8, 4, 4),
-    SHADER_TILE(16, 1, 1, 8, 8, 1), SHADER_TILE(16, 1, 1, 8, 8, 2), SHADER_TILE(16, 1, 1, 8, 8, 4),
-
-    // workgroup size = (8, 2, 1)
-    SHADER_TILE(8, 2, 1, 1, 1, 1), SHADER_TILE(8, 2, 1, 1, 1, 2), SHADER_TILE(8, 2, 1, 1, 1, 4),
-    SHADER_TILE(8, 2, 1, 1, 2, 1), SHADER_TILE(8, 2, 1, 1, 2, 2), SHADER_TILE(8, 2, 1, 1, 2, 4),
-    SHADER_TILE(8, 2, 1, 1, 4, 1), SHADER_TILE(8, 2, 1, 1, 4, 2), SHADER_TILE(8, 2, 1, 1, 4, 4),
-    SHADER_TILE(8, 2, 1, 1, 8, 1), SHADER_TILE(8, 2, 1, 1, 8, 2), SHADER_TILE(8, 2, 1, 1, 8, 4),
-
-    SHADER_TILE(8, 2, 1, 2, 1, 1), SHADER_TILE(8, 2, 1, 2, 1, 2), SHADER_TILE(8, 2, 1, 2, 1, 4),
-    SHADER_TILE(8, 2, 1, 2, 2, 1), SHADER_TILE(8, 2, 1, 2, 2, 2), SHADER_TILE(8, 2, 1, 2, 2, 4),
-    SHADER_TILE(8, 2, 1, 2, 4, 1), SHADER_TILE(8, 2, 1, 2, 4, 2), SHADER_TILE(8, 2, 1, 2, 4, 4),
-    SHADER_TILE(8, 2, 1, 2, 8, 1), SHADER_TILE(8, 2, 1, 2, 8, 2), SHADER_TILE(8, 2, 1, 2, 8, 4),
-
-    SHADER_TILE(8, 2, 1, 4, 1, 1), SHADER_TILE(8, 2, 1, 4, 1, 2), SHADER_TILE(8, 2, 1, 4, 1, 4),
-    SHADER_TILE(8, 2, 1, 4, 2, 1), SHADER_TILE(8, 2, 1, 4, 2, 2), SHADER_TILE(8, 2, 1, 4, 2, 4),
-    SHADER_TILE(8, 2, 1, 4, 4, 1), SHADER_TILE(8, 2, 1, 4, 4, 2), SHADER_TILE(8, 2, 1, 4, 4, 4),
-    SHADER_TILE(8, 2, 1, 4, 8, 1), SHADER_TILE(8, 2, 1, 4, 8, 2), SHADER_TILE(8, 2, 1, 4, 8, 4),
-
-    SHADER_TILE(8, 2, 1, 8, 1, 1), SHADER_TILE(8, 2, 1, 8, 1, 2), SHADER_TILE(8, 2, 1, 8, 1, 4),
-    SHADER_TILE(8, 2, 1, 8, 2, 1), SHADER_TILE(8, 2, 1, 8, 2, 2), SHADER_TILE(8, 2, 1, 8, 2, 4),
-    SHADER_TILE(8, 2, 1, 8, 4, 1), SHADER_TILE(8, 2, 1, 8, 4, 2), SHADER_TILE(8, 2, 1, 8, 4, 4),
-    SHADER_TILE(8, 2, 1, 8, 8, 1), SHADER_TILE(8, 2, 1, 8, 8, 2), SHADER_TILE(8, 2, 1, 8, 8, 4),
-
-    // workgroup size = (4, 4, 1)
-    SHADER_TILE(4, 4, 1, 1, 1, 1), SHADER_TILE(4, 4, 1, 1, 1, 2), SHADER_TILE(4, 4, 1, 1, 1, 4),
-    SHADER_TILE(4, 4, 1, 1, 2, 1), SHADER_TILE(4, 4, 1, 1, 2, 2), SHADER_TILE(4, 4, 1, 1, 2, 4),
-    SHADER_TILE(4, 4, 1, 1, 4, 1), SHADER_TILE(4, 4, 1, 1, 4, 2), SHADER_TILE(4, 4, 1, 1, 4, 4),
-    SHADER_TILE(4, 4, 1, 1, 8, 1), SHADER_TILE(4, 4, 1, 1, 8, 2), SHADER_TILE(4, 4, 1, 1, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 2, 1, 1), SHADER_TILE(4, 4, 1, 2, 1, 2), SHADER_TILE(4, 4, 1, 2, 1, 4),
-    SHADER_TILE(4, 4, 1, 2, 2, 1), SHADER_TILE(4, 4, 1, 2, 2, 2), SHADER_TILE(4, 4, 1, 2, 2, 4),
-    SHADER_TILE(4, 4, 1, 2, 4, 1), SHADER_TILE(4, 4, 1, 2, 4, 2), SHADER_TILE(4, 4, 1, 2, 4, 4),
-    SHADER_TILE(4, 4, 1, 2, 8, 1), SHADER_TILE(4, 4, 1, 2, 8, 2), SHADER_TILE(4, 4, 1, 2, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 4, 1, 1), SHADER_TILE(4, 4, 1, 4, 1, 2), SHADER_TILE(4, 4, 1, 4, 1, 4),
-    SHADER_TILE(4, 4, 1, 4, 2, 1), SHADER_TILE(4, 4, 1, 4, 2, 2), SHADER_TILE(4, 4, 1, 4, 2, 4),
-    SHADER_TILE(4, 4, 1, 4, 4, 1), SHADER_TILE(4, 4, 1, 4, 4, 2), SHADER_TILE(4, 4, 1, 4, 4, 4),
-    SHADER_TILE(4, 4, 1, 4, 8, 1), SHADER_TILE(4, 4, 1, 4, 8, 2), SHADER_TILE(4, 4, 1, 4, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 8, 1, 1), SHADER_TILE(4, 4, 1, 8, 1, 2), SHADER_TILE(4, 4, 1, 8, 1, 4),
-    SHADER_TILE(4, 4, 1, 8, 2, 1), SHADER_TILE(4, 4, 1, 8, 2, 2), SHADER_TILE(4, 4, 1, 8, 2, 4),
-    SHADER_TILE(4, 4, 1, 8, 4, 1), SHADER_TILE(4, 4, 1, 8, 4, 2), SHADER_TILE(4, 4, 1, 8, 4, 4),
-    SHADER_TILE(4, 4, 1, 8, 8, 1), SHADER_TILE(4, 4, 1, 8, 8, 2), SHADER_TILE(4, 4, 1, 8, 8, 4),
-
-    // workgroup size = (4, 2, 2)
-    SHADER_TILE(4, 2, 2, 1, 1, 1), SHADER_TILE(4, 2, 2, 1, 1, 2), SHADER_TILE(4, 2, 2, 1, 1, 4),
-    SHADER_TILE(4, 2, 2, 1, 2, 1), SHADER_TILE(4, 2, 2, 1, 2, 2), SHADER_TILE(4, 2, 2, 1, 2, 4),
-    SHADER_TILE(4, 2, 2, 1, 4, 1), SHADER_TILE(4, 2, 2, 1, 4, 2), SHADER_TILE(4, 2, 2, 1, 4, 4),
-    SHADER_TILE(4, 2, 2, 1, 8, 1), SHADER_TILE(4, 2, 2, 1, 8, 2), SHADER_TILE(4, 2, 2, 1, 8, 4),
-
-    SHADER_TILE(4, 2, 2, 2, 1, 1), SHADER_TILE(4, 2, 2, 2, 1, 2), SHADER_TILE(4, 2, 2, 2, 1, 4),
-    SHADER_TILE(4, 2, 2, 2, 2, 1), SHADER_TILE(4, 2, 2, 2, 2, 2), SHADER_TILE(4, 2, 2, 2, 2, 4),
-    SHADER_TILE(4, 2, 2, 2, 4, 1), SHADER_TILE(4, 2, 2, 2, 4, 2), SHADER_TILE(4, 2, 2, 2, 4, 4),
-    SHADER_TILE(4, 2, 2, 2, 8, 1), SHADER_TILE(4, 2, 2, 2, 8, 2), SHADER_TILE(4, 2, 2, 2, 8, 4),
-
-    SHADER_TILE(4, 2, 2, 4, 1, 1), SHADER_TILE(4, 2, 2, 4, 1, 2), SHADER_TILE(4, 2, 2, 4, 1, 4),
-    SHADER_TILE(4, 2, 2, 4, 2, 1), SHADER_TILE(4, 2, 2, 4, 2, 2), SHADER_TILE(4, 2, 2, 4, 2, 4),
-    SHADER_TILE(4, 2, 2, 4, 4, 1), SHADER_TILE(4, 2, 2, 4, 4, 2), SHADER_TILE(4, 2, 2, 4, 4, 4),
-    SHADER_TILE(4, 2, 2, 4, 8, 1), SHADER_TILE(4, 2, 2, 4, 8, 2), SHADER_TILE(4, 2, 2, 4, 8, 4),
-
-    SHADER_TILE(4, 2, 2, 8, 1, 1), SHADER_TILE(4, 2, 2, 8, 1, 2), SHADER_TILE(4, 2, 2, 8, 1, 4),
-    SHADER_TILE(4, 2, 2, 8, 2, 1), SHADER_TILE(4, 2, 2, 8, 2, 2), SHADER_TILE(4, 2, 2, 8, 2, 4),
-    SHADER_TILE(4, 2, 2, 8, 4, 1), SHADER_TILE(4, 2, 2, 8, 4, 2), SHADER_TILE(4, 2, 2, 8, 4, 4),
-    SHADER_TILE(4, 2, 2, 8, 8, 1), SHADER_TILE(4, 2, 2, 8, 8, 2), SHADER_TILE(4, 2, 2, 8, 8, 4),
-
-    // workgroup size = (32, 1, 1)
-    SHADER_TILE(32, 1, 1, 1, 1, 1), SHADER_TILE(32, 1, 1, 1, 1, 2), SHADER_TILE(32, 1, 1, 1, 1, 4),
-    SHADER_TILE(32, 1, 1, 1, 2, 1), SHADER_TILE(32, 1, 1, 1, 2, 2), SHADER_TILE(32, 1, 1, 1, 2, 4),
-    SHADER_TILE(32, 1, 1, 1, 4, 1), SHADER_TILE(32, 1, 1, 1, 4, 2), SHADER_TILE(32, 1, 1, 1, 4, 4),
-    SHADER_TILE(32, 1, 1, 1, 8, 1), SHADER_TILE(32, 1, 1, 1, 8, 2), SHADER_TILE(32, 1, 1, 1, 8, 4),
-
-    SHADER_TILE(32, 1, 1, 2, 1, 1), SHADER_TILE(32, 1, 1, 2, 1, 2), SHADER_TILE(32, 1, 1, 2, 1, 4),
-    SHADER_TILE(32, 1, 1, 2, 2, 1), SHADER_TILE(32, 1, 1, 2, 2, 2), SHADER_TILE(32, 1, 1, 2, 2, 4),
-    SHADER_TILE(32, 1, 1, 2, 4, 1), SHADER_TILE(32, 1, 1, 2, 4, 2), SHADER_TILE(32, 1, 1, 2, 4, 4),
-    SHADER_TILE(32, 1, 1, 2, 8, 1), SHADER_TILE(32, 1, 1, 2, 8, 2), SHADER_TILE(32, 1, 1, 2, 8, 4),
-
-    SHADER_TILE(32, 1, 1, 4, 1, 1), SHADER_TILE(32, 1, 1, 4, 1, 2), SHADER_TILE(32, 1, 1, 4, 1, 4),
-    SHADER_TILE(32, 1, 1, 4, 2, 1), SHADER_TILE(32, 1, 1, 4, 2, 2), SHADER_TILE(32, 1, 1, 4, 2, 4),
-    SHADER_TILE(32, 1, 1, 4, 4, 1), SHADER_TILE(32, 1, 1, 4, 4, 2), SHADER_TILE(32, 1, 1, 4, 4, 4),
-    SHADER_TILE(32, 1, 1, 4, 8, 1), SHADER_TILE(32, 1, 1, 4, 8, 2), SHADER_TILE(32, 1, 1, 4, 8, 4),
-
-    SHADER_TILE(32, 1, 1, 8, 1, 1), SHADER_TILE(32, 1, 1, 8, 1, 2), SHADER_TILE(32, 1, 1, 8, 1, 4),
-    SHADER_TILE(32, 1, 1, 8, 2, 1), SHADER_TILE(32, 1, 1, 8, 2, 2), SHADER_TILE(32, 1, 1, 8, 2, 4),
-    SHADER_TILE(32, 1, 1, 8, 4, 1), SHADER_TILE(32, 1, 1, 8, 4, 2), SHADER_TILE(32, 1, 1, 8, 4, 4),
-    SHADER_TILE(32, 1, 1, 8, 8, 1), SHADER_TILE(32, 1, 1, 8, 8, 2), SHADER_TILE(32, 1, 1, 8, 8, 4),
-
-    // workgroup size = (16, 2, 1)
-    SHADER_TILE(16, 2, 1, 1, 1, 1), SHADER_TILE(16, 2, 1, 1, 1, 2), SHADER_TILE(16, 2, 1, 1, 1, 4),
-    SHADER_TILE(16, 2, 1, 1, 2, 1), SHADER_TILE(16, 2, 1, 1, 2, 2), SHADER_TILE(16, 2, 1, 1, 2, 4),
-    SHADER_TILE(16, 2, 1, 1, 4, 1), SHADER_TILE(16, 2, 1, 1, 4, 2), SHADER_TILE(16, 2, 1, 1, 4, 4),
-    SHADER_TILE(16, 2, 1, 1, 8, 1), SHADER_TILE(16, 2, 1, 1, 8, 2), SHADER_TILE(16, 2, 1, 1, 8, 4),
-
-    SHADER_TILE(16, 2, 1, 2, 1, 1), SHADER_TILE(16, 2, 1, 2, 1, 2), SHADER_TILE(16, 2, 1, 2, 1, 4),
-    SHADER_TILE(16, 2, 1, 2, 2, 1), SHADER_TILE(16, 2, 1, 2, 2, 2), SHADER_TILE(16, 2, 1, 2, 2, 4),
-    SHADER_TILE(16, 2, 1, 2, 4, 1), SHADER_TILE(16, 2, 1, 2, 4, 2), SHADER_TILE(16, 2, 1, 2, 4, 4),
-    SHADER_TILE(16, 2, 1, 2, 8, 1), SHADER_TILE(16, 2, 1, 2, 8, 2), SHADER_TILE(16, 2, 1, 2, 8, 4),
-
-    SHADER_TILE(16, 2, 1, 4, 1, 1), SHADER_TILE(16, 2, 1, 4, 1, 2), SHADER_TILE(16, 2, 1, 4, 1, 4),
-    SHADER_TILE(16, 2, 1, 4, 2, 1), SHADER_TILE(16, 2, 1, 4, 2, 2), SHADER_TILE(16, 2, 1, 4, 2, 4),
-    SHADER_TILE(16, 2, 1, 4, 4, 1), SHADER_TILE(16, 2, 1, 4, 4, 2), SHADER_TILE(16, 2, 1, 4, 4, 4),
-    SHADER_TILE(16, 2, 1, 4, 8, 1), SHADER_TILE(16, 2, 1, 4, 8, 2), SHADER_TILE(16, 2, 1, 4, 8, 4),
-
-    SHADER_TILE(16, 2, 1, 8, 1, 1), SHADER_TILE(16, 2, 1, 8, 1, 2), SHADER_TILE(16, 2, 1, 8, 1, 4),
-    SHADER_TILE(16, 2, 1, 8, 2, 1), SHADER_TILE(16, 2, 1, 8, 2, 2), SHADER_TILE(16, 2, 1, 8, 2, 4),
-    SHADER_TILE(16, 2, 1, 8, 4, 1), SHADER_TILE(16, 2, 1, 8, 4, 2), SHADER_TILE(16, 2, 1, 8, 4, 4),
-    SHADER_TILE(16, 2, 1, 8, 8, 1), SHADER_TILE(16, 2, 1, 8, 8, 2), SHADER_TILE(16, 2, 1, 8, 8, 4),
-
-    // workgroup size = (8, 4, 1)
-    SHADER_TILE(8, 4, 1, 1, 1, 1), SHADER_TILE(8, 4, 1, 1, 1, 2), SHADER_TILE(8, 4, 1, 1, 1, 4),
-    SHADER_TILE(8, 4, 1, 1, 2, 1), SHADER_TILE(8, 4, 1, 1, 2, 2), SHADER_TILE(8, 4, 1, 1, 2, 4),
-    SHADER_TILE(8, 4, 1, 1, 4, 1), SHADER_TILE(8, 4, 1, 1, 4, 2), SHADER_TILE(8, 4, 1, 1, 4, 4),
-    SHADER_TILE(8, 4, 1, 1, 8, 1), SHADER_TILE(8, 4, 1, 1, 8, 2), SHADER_TILE(8, 4, 1, 1, 8, 4),
-
-    SHADER_TILE(8, 4, 1, 2, 1, 1), SHADER_TILE(8, 4, 1, 2, 1, 2), SHADER_TILE(8, 4, 1, 2, 1, 4),
-    SHADER_TILE(8, 4, 1, 2, 2, 1), SHADER_TILE(8, 4, 1, 2, 2, 2), SHADER_TILE(8, 4, 1, 2, 2, 4),
-    SHADER_TILE(8, 4, 1, 2, 4, 1), SHADER_TILE(8, 4, 1, 2, 4, 2), SHADER_TILE(8, 4, 1, 2, 4, 4),
-    SHADER_TILE(8, 4, 1, 2, 8, 1), SHADER_TILE(8, 4, 1, 2, 8, 2), SHADER_TILE(8, 4, 1, 2, 8, 4),
-
-    SHADER_TILE(8, 4, 1, 4, 1, 1), SHADER_TILE(8, 4, 1, 4, 1, 2), SHADER_TILE(8, 4, 1, 4, 1, 4),
-    SHADER_TILE(8, 4, 1, 4, 2, 1), SHADER_TILE(8, 4, 1, 4, 2, 2), SHADER_TILE(8, 4, 1, 4, 2, 4),
-    SHADER_TILE(8, 4, 1, 4, 4, 1), SHADER_TILE(8, 4, 1, 4, 4, 2), SHADER_TILE(8, 4, 1, 4, 4, 4),
-    SHADER_TILE(8, 4, 1, 4, 8, 1), SHADER_TILE(8, 4, 1, 4, 8, 2), SHADER_TILE(8, 4, 1, 4, 8, 4),
-
-    SHADER_TILE(8, 4, 1, 8, 1, 1), SHADER_TILE(8, 4, 1, 8, 1, 2), SHADER_TILE(8, 4, 1, 8, 1, 4),
-    SHADER_TILE(8, 4, 1, 8, 2, 1), SHADER_TILE(8, 4, 1, 8, 2, 2), SHADER_TILE(8, 4, 1, 8, 2, 4),
-    SHADER_TILE(8, 4, 1, 8, 4, 1), SHADER_TILE(8, 4, 1, 8, 4, 2), SHADER_TILE(8, 4, 1, 8, 4, 4),
-    SHADER_TILE(8, 4, 1, 8, 8, 1), SHADER_TILE(8, 4, 1, 8, 8, 2), SHADER_TILE(8, 4, 1, 8, 8, 4),
-
-    // workgroup size = (8, 2, 2)
-    SHADER_TILE(8, 2, 2, 1, 1, 1), SHADER_TILE(8, 2, 2, 1, 1, 2), SHADER_TILE(8, 2, 2, 1, 1, 4),
-    SHADER_TILE(8, 2, 2, 1, 2, 1), SHADER_TILE(8, 2, 2, 1, 2, 2), SHADER_TILE(8, 2, 2, 1, 2, 4),
-    SHADER_TILE(8, 2, 2, 1, 4, 1), SHADER_TILE(8, 2, 2, 1, 4, 2), SHADER_TILE(8, 2, 2, 1, 4, 4),
-    SHADER_TILE(8, 2, 2, 1, 8, 1), SHADER_TILE(8, 2, 2, 1, 8, 2), SHADER_TILE(8, 2, 2, 1, 8, 4),
-
-    SHADER_TILE(8, 2, 2, 2, 1, 1), SHADER_TILE(8, 2, 2, 2, 1, 2), SHADER_TILE(8, 2, 2, 2, 1, 4),
-    SHADER_TILE(8, 2, 2, 2, 2, 1), SHADER_TILE(8, 2, 2, 2, 2, 2), SHADER_TILE(8, 2, 2, 2, 2, 4),
-    SHADER_TILE(8, 2, 2, 2, 4, 1), SHADER_TILE(8, 2, 2, 2, 4, 2), SHADER_TILE(8, 2, 2, 2, 4, 4),
-    SHADER_TILE(8, 2, 2, 2, 8, 1), SHADER_TILE(8, 2, 2, 2, 8, 2), SHADER_TILE(8, 2, 2, 2, 8, 4),
-
-    SHADER_TILE(8, 2, 2, 4, 1, 1), SHADER_TILE(8, 2, 2, 4, 1, 2), SHADER_TILE(8, 2, 2, 4, 1, 4),
-    SHADER_TILE(8, 2, 2, 4, 2, 1), SHADER_TILE(8, 2, 2, 4, 2, 2), SHADER_TILE(8, 2, 2, 4, 2, 4),
-    SHADER_TILE(8, 2, 2, 4, 4, 1), SHADER_TILE(8, 2, 2, 4, 4, 2), SHADER_TILE(8, 2, 2, 4, 4, 4),
-    SHADER_TILE(8, 2, 2, 4, 8, 1), SHADER_TILE(8, 2, 2, 4, 8, 2), SHADER_TILE(8, 2, 2, 4, 8, 4),
-
-    SHADER_TILE(8, 2, 2, 8, 1, 1), SHADER_TILE(8, 2, 2, 8, 1, 2), SHADER_TILE(8, 2, 2, 8, 1, 4),
-    SHADER_TILE(8, 2, 2, 8, 2, 1), SHADER_TILE(8, 2, 2, 8, 2, 2), SHADER_TILE(8, 2, 2, 8, 2, 4),
-    SHADER_TILE(8, 2, 2, 8, 4, 1), SHADER_TILE(8, 2, 2, 8, 4, 2), SHADER_TILE(8, 2, 2, 8, 4, 4),
-    SHADER_TILE(8, 2, 2, 8, 8, 1), SHADER_TILE(8, 2, 2, 8, 8, 2), SHADER_TILE(8, 2, 2, 8, 8, 4),
-
-    // workgroup size = (4, 4, 1)
-    SHADER_TILE(4, 4, 1, 1, 1, 1), SHADER_TILE(4, 4, 1, 1, 1, 2), SHADER_TILE(4, 4, 1, 1, 1, 4),
-    SHADER_TILE(4, 4, 1, 1, 2, 1), SHADER_TILE(4, 4, 1, 1, 2, 2), SHADER_TILE(4, 4, 1, 1, 2, 4),
-    SHADER_TILE(4, 4, 1, 1, 4, 1), SHADER_TILE(4, 4, 1, 1, 4, 2), SHADER_TILE(4, 4, 1, 1, 4, 4),
-    SHADER_TILE(4, 4, 1, 1, 8, 1), SHADER_TILE(4, 4, 1, 1, 8, 2), SHADER_TILE(4, 4, 1, 1, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 2, 1, 1), SHADER_TILE(4, 4, 1, 2, 1, 2), SHADER_TILE(4, 4, 1, 2, 1, 4),
-    SHADER_TILE(4, 4, 1, 2, 2, 1), SHADER_TILE(4, 4, 1, 2, 2, 2), SHADER_TILE(4, 4, 1, 2, 2, 4),
-    SHADER_TILE(4, 4, 1, 2, 4, 1), SHADER_TILE(4, 4, 1, 2, 4, 2), SHADER_TILE(4, 4, 1, 2, 4, 4),
-    SHADER_TILE(4, 4, 1, 2, 8, 1), SHADER_TILE(4, 4, 1, 2, 8, 2), SHADER_TILE(4, 4, 1, 2, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 4, 1, 1), SHADER_TILE(4, 4, 1, 4, 1, 2), SHADER_TILE(4, 4, 1, 4, 1, 4),
-    SHADER_TILE(4, 4, 1, 4, 2, 1), SHADER_TILE(4, 4, 1, 4, 2, 2), SHADER_TILE(4, 4, 1, 4, 2, 4),
-    SHADER_TILE(4, 4, 1, 4, 4, 1), SHADER_TILE(4, 4, 1, 4, 4, 2), SHADER_TILE(4, 4, 1, 4, 4, 4),
-    SHADER_TILE(4, 4, 1, 4, 8, 1), SHADER_TILE(4, 4, 1, 4, 8, 2), SHADER_TILE(4, 4, 1, 4, 8, 4),
-
-    SHADER_TILE(4, 4, 1, 8, 1, 1), SHADER_TILE(4, 4, 1, 8, 1, 2), SHADER_TILE(4, 4, 1, 8, 1, 4),
-    SHADER_TILE(4, 4, 1, 8, 2, 1), SHADER_TILE(4, 4, 1, 8, 2, 2), SHADER_TILE(4, 4, 1, 8, 2, 4),
-    SHADER_TILE(4, 4, 1, 8, 4, 1), SHADER_TILE(4, 4, 1, 8, 4, 2), SHADER_TILE(4, 4, 1, 8, 4, 4),
-    SHADER_TILE(4, 4, 1, 8, 8, 1), SHADER_TILE(4, 4, 1, 8, 8, 2), SHADER_TILE(4, 4, 1, 8, 8, 4),
-    // clang-format on
+    WORKGROUP_TILE(64, 1, 1), WORKGROUP_TILE(32, 2, 1),
+    WORKGROUP_TILE(16, 4, 1), WORKGROUP_TILE(16, 2, 2),
+    WORKGROUP_TILE(8, 4, 2),  WORKGROUP_TILE(4, 4, 4),
 };
+
+#elif defined(UVKC_MALI_VALHALL)
+
+#include "depthwise_conv2d_tiled_shader_valhall_spirv_permutation.inc"
+
+static ShaderCode kShaderCodeCases[] = {
+    WORKGROUP_TILE(16, 1, 1), WORKGROUP_TILE(8, 2, 1),
+    WORKGROUP_TILE(4, 4, 1),  WORKGROUP_TILE(4, 2, 2),
+};
+
+#else
+#error "unsupported GPU architecture"
+#endif
+
+#undef WORKGROUP_TILE
 #undef SHADER_TILE
 
 struct DataScaleCase {

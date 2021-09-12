@@ -12,46 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-uvkc_glsl_shader_permutation(
-  NAME
-    conv2d_f32_tiled_shader_valhall
-  SRC
-    "conv2d_tiled.glsl"
-  PERMUTATION
-    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}]"
-    "IVC_OH=[1|2|4]"
-    "IVC_OW=[1|2|4]"
-    "IVC_OC=1" # Number of vec4
-    "VEC4TYPE=vec4"
-)
-
-uvkc_glsl_shader_permutation(
-  NAME
-    conv2d_f16_packed_shader_valhall
-  SRC
-    "conv2d_packed.glsl"
-  PERMUTATION
-    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}]"
-    "IVC_OH=[1|2|4]"
-    "IVC_OW=[1|2|4]"
-    "IVC_OC=1" # Number of 2xf16vec4
-)
-
-uvkc_cc_binary(
-  NAME
-    conv2d_mali_valhall
-  SRCS
-    "conv2d_main.cc"
-  DEPS
-    ::conv2d_f16_packed_shader_valhall
-    ::conv2d_f32_tiled_shader_valhall
-    benchmark::benchmark
-    uvkc::benchmark::fp16_util
-    uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
-  COPTS
-    -DUVKC_MALI_VALHALL
-)
+#-------------------------------------------------------------------------------
+# Convolution (Adreno)
+#-------------------------------------------------------------------------------
 
 uvkc_glsl_shader_permutation(
   NAME
@@ -94,26 +57,107 @@ uvkc_cc_binary(
     -DUVKC_ADRENO
 )
 
+#-------------------------------------------------------------------------------
+# Convolution (Mali Valhall)
+#-------------------------------------------------------------------------------
+
 uvkc_glsl_shader_permutation(
   NAME
-    depthwise_conv2d_tiled_shader
+    conv2d_f32_tiled_shader_valhall
   SRC
-    "depthwise_conv2d_tiled.glsl"
+    "conv2d_tiled.glsl"
   PERMUTATION
-    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}|{32,1,1}|{16,2,1}|{8,4,1}|{8,2,2}|{4,4,2}]"
-    "IVC_OH=[1|2|4|8]"
-    "IVC_OW=[1|2|4|8]"
-    "IVC_OC=[1|2|4]"
+    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}]"
+    "IVC_OH=[1|2|4]"
+    "IVC_OW=[1|2|4]"
+    "IVC_OC=1" # Number of vec4
+    "VEC4TYPE=vec4"
+)
+
+uvkc_glsl_shader_permutation(
+  NAME
+    conv2d_f16_packed_shader_valhall
+  SRC
+    "conv2d_packed.glsl"
+  PERMUTATION
+    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}]"
+    "IVC_OH=[1|2|4]"
+    "IVC_OW=[1|2|4]"
+    "IVC_OC=1" # Number of 2xf16vec4
 )
 
 uvkc_cc_binary(
   NAME
-    depthwise_conv2d
+    conv2d_mali_valhall
+  SRCS
+    "conv2d_main.cc"
+  DEPS
+    ::conv2d_f16_packed_shader_valhall
+    ::conv2d_f32_tiled_shader_valhall
+    benchmark::benchmark
+    uvkc::benchmark::fp16_util
+    uvkc::benchmark::main
+    uvkc::benchmark::vulkan_buffer_util
+  COPTS
+    -DUVKC_MALI_VALHALL
+)
+
+#-------------------------------------------------------------------------------
+# Depthwise Convolution (Adreno)
+#-------------------------------------------------------------------------------
+
+uvkc_glsl_shader_permutation(
+  NAME
+    depthwise_conv2d_tiled_shader_adreno
+  SRC
+    "depthwise_conv2d_tiled.glsl"
+  PERMUTATION
+    "{WG_X,WG_Y,WG_Z}=[{64,1,1}|{32,2,1}|{16,4,1}|{16,2,2}|{8,4,2}|{4,4,4}]"
+    "IVC_OH=[1|2|4]"
+    "IVC_OW=[1|2|4]"
+    "IVC_OC=1" # Number of vec4
+)
+
+uvkc_cc_binary(
+  NAME
+    depthwise_conv2d_adreno
   SRCS
     "depthwise_conv2d_main.cc"
   DEPS
-    ::depthwise_conv2d_tiled_shader
+    ::depthwise_conv2d_tiled_shader_adreno
     benchmark::benchmark
     uvkc::benchmark::main
     uvkc::benchmark::vulkan_buffer_util
+  COPTS
+    -DUVKC_ADRENO
+)
+
+#-------------------------------------------------------------------------------
+# Depthwise Convolution (Mali Valhall)
+#-------------------------------------------------------------------------------
+
+uvkc_glsl_shader_permutation(
+  NAME
+    depthwise_conv2d_tiled_shader_valhall
+  SRC
+    "depthwise_conv2d_tiled.glsl"
+  PERMUTATION
+    "{WG_X,WG_Y,WG_Z}=[{16,1,1}|{8,2,1}|{4,4,1}|{4,2,2}]"
+    "IVC_OH=[1|2|4]"
+    "IVC_OW=[1|2|4]"
+    "IVC_OC=1" # Number of vec4
+)
+
+uvkc_cc_binary(
+  NAME
+    depthwise_conv2d_mali_valhall
+  SRCS
+    "depthwise_conv2d_main.cc"
+  DEPS
+    ::depthwise_conv2d_tiled_shader_valhall
+    benchmark::benchmark
+    uvkc::benchmark::main
+    uvkc::benchmark::vulkan_buffer_util
+  COPTS
+    -DUVKC_MALI_VALHALL
 )
