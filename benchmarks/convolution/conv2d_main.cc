@@ -35,10 +35,6 @@ using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "2d_convolution";
 
-#include "conv2d_f16_packed_shader_spirv_permutation.inc"
-#include "conv2d_f16_tiled_shader_spirv_permutation.inc"
-#include "conv2d_f32_tiled_shader_spirv_permutation.inc"
-
 struct ShaderCode {
   const uint32_t *code;   // SPIR-V code
   size_t code_num_bytes;  // Number of bytes for SPIR-V code
@@ -72,84 +68,52 @@ struct ShaderCode {
         OH, OW, OC, X, Y, Z, 8, Precision::fp16                                        \
   }
 
+// clang-format off
+#define F32_WORKGROUP_TILE(X, Y, Z) \
+  F32_SHADER_TILE(X, Y, Z, 1, 1, 1), F32_SHADER_TILE(X, Y, Z, 1, 2, 1), F32_SHADER_TILE(X, Y, Z, 1, 4, 1), \
+  F32_SHADER_TILE(X, Y, Z, 2, 1, 1), F32_SHADER_TILE(X, Y, Z, 2, 2, 1), F32_SHADER_TILE(X, Y, Z, 2, 4, 1), \
+  F32_SHADER_TILE(X, Y, Z, 4, 1, 1), F32_SHADER_TILE(X, Y, Z, 4, 2, 1), F32_SHADER_TILE(X, Y, Z, 4, 4, 1)
+
+#define F16_WORKGROUP_PACK(X, Y, Z) \
+  F16_SHADER_PACK(X, Y, Z, 1, 1, 1), F16_SHADER_PACK(X, Y, Z, 1, 2, 1), F16_SHADER_PACK(X, Y, Z, 1, 4, 1), \
+  F16_SHADER_PACK(X, Y, Z, 2, 1, 1), F16_SHADER_PACK(X, Y, Z, 2, 2, 1), F16_SHADER_PACK(X, Y, Z, 2, 4, 1), \
+  F16_SHADER_PACK(X, Y, Z, 4, 1, 1), F16_SHADER_PACK(X, Y, Z, 4, 2, 1), F16_SHADER_PACK(X, Y, Z, 4, 4, 1)
+// clang-format on
+
+#if defined(UVKC_ADRENO)
+
+#include "conv2d_f16_packed_shader_adreno_spirv_permutation.inc"
+#include "conv2d_f32_tiled_shader_adreno_spirv_permutation.inc"
+
 static ShaderCode kShaderCodeCases[] = {
-    // clang-format off
-    // workgroup size = (16, 1, 1)
-    F16_SHADER_PACK(16, 1, 1, 1, 1, 1), F16_SHADER_PACK(16, 1, 1, 1, 1, 2), F16_SHADER_PACK(16, 1, 1, 1, 1, 4),
-    F16_SHADER_PACK(16, 1, 1, 1, 2, 1), F16_SHADER_PACK(16, 1, 1, 1, 2, 2), F16_SHADER_PACK(16, 1, 1, 1, 2, 4),
-    F16_SHADER_PACK(16, 1, 1, 1, 4, 1), F16_SHADER_PACK(16, 1, 1, 1, 4, 2), F16_SHADER_PACK(16, 1, 1, 1, 4, 4),
-    F16_SHADER_PACK(16, 1, 1, 1, 8, 1), F16_SHADER_PACK(16, 1, 1, 1, 8, 2), F16_SHADER_PACK(16, 1, 1, 1, 8, 4),
+    F32_WORKGROUP_TILE(64, 1, 1), F32_WORKGROUP_TILE(32, 2, 1),
+    F32_WORKGROUP_TILE(16, 4, 1), F32_WORKGROUP_TILE(16, 2, 2),
+    F32_WORKGROUP_TILE(8, 4, 2),  F32_WORKGROUP_TILE(4, 4, 4),
 
-    F16_SHADER_PACK(16, 1, 1, 2, 1, 1), F16_SHADER_PACK(16, 1, 1, 2, 1, 2), F16_SHADER_PACK(16, 1, 1, 2, 1, 4),
-    F16_SHADER_PACK(16, 1, 1, 2, 2, 1), F16_SHADER_PACK(16, 1, 1, 2, 2, 2), F16_SHADER_PACK(16, 1, 1, 2, 2, 4),
-    F16_SHADER_PACK(16, 1, 1, 2, 4, 1), F16_SHADER_PACK(16, 1, 1, 2, 4, 2), F16_SHADER_PACK(16, 1, 1, 2, 4, 4),
-    F16_SHADER_PACK(16, 1, 1, 2, 8, 1), F16_SHADER_PACK(16, 1, 1, 2, 8, 2), F16_SHADER_PACK(16, 1, 1, 2, 8, 4),
-
-    F16_SHADER_PACK(16, 1, 1, 4, 1, 1), F16_SHADER_PACK(16, 1, 1, 4, 1, 2), F16_SHADER_PACK(16, 1, 1, 4, 1, 4),
-    F16_SHADER_PACK(16, 1, 1, 4, 2, 1), F16_SHADER_PACK(16, 1, 1, 4, 2, 2), F16_SHADER_PACK(16, 1, 1, 4, 2, 4),
-    F16_SHADER_PACK(16, 1, 1, 4, 4, 1), F16_SHADER_PACK(16, 1, 1, 4, 4, 2), F16_SHADER_PACK(16, 1, 1, 4, 4, 4),
-
-    // workgroup size = (8, 2, 1)
-    F16_SHADER_PACK(8, 2, 1, 1, 1, 1), F16_SHADER_PACK(8, 2, 1, 1, 1, 2), F16_SHADER_PACK(8, 2, 1, 1, 1, 4),
-    F16_SHADER_PACK(8, 2, 1, 1, 2, 1), F16_SHADER_PACK(8, 2, 1, 1, 2, 2), F16_SHADER_PACK(8, 2, 1, 1, 2, 4),
-    F16_SHADER_PACK(8, 2, 1, 1, 4, 1), F16_SHADER_PACK(8, 2, 1, 1, 4, 2), F16_SHADER_PACK(8, 2, 1, 1, 4, 4),
-    F16_SHADER_PACK(8, 2, 1, 1, 8, 1), F16_SHADER_PACK(8, 2, 1, 1, 8, 2), F16_SHADER_PACK(8, 2, 1, 1, 8, 4),
-
-    F16_SHADER_PACK(8, 2, 1, 2, 1, 1), F16_SHADER_PACK(8, 2, 1, 2, 1, 2), F16_SHADER_PACK(8, 2, 1, 2, 1, 4),
-    F16_SHADER_PACK(8, 2, 1, 2, 2, 1), F16_SHADER_PACK(8, 2, 1, 2, 2, 2), F16_SHADER_PACK(8, 2, 1, 2, 2, 4),
-    F16_SHADER_PACK(8, 2, 1, 2, 4, 1), F16_SHADER_PACK(8, 2, 1, 2, 4, 2), F16_SHADER_PACK(8, 2, 1, 2, 4, 4),
-    F16_SHADER_PACK(8, 2, 1, 2, 8, 1), F16_SHADER_PACK(8, 2, 1, 2, 8, 2), F16_SHADER_PACK(8, 2, 1, 2, 8, 4),
-
-    F16_SHADER_PACK(8, 2, 1, 4, 1, 1), F16_SHADER_PACK(8, 2, 1, 4, 1, 2), F16_SHADER_PACK(8, 2, 1, 4, 1, 4),
-    F16_SHADER_PACK(8, 2, 1, 4, 2, 1), F16_SHADER_PACK(8, 2, 1, 4, 2, 2), F16_SHADER_PACK(8, 2, 1, 4, 2, 4),
-    F16_SHADER_PACK(8, 2, 1, 4, 4, 1), F16_SHADER_PACK(8, 2, 1, 4, 4, 2), F16_SHADER_PACK(8, 2, 1, 4, 4, 4),
-
-    // workgroup size = (4, 4, 1)
-    F16_SHADER_PACK(4, 4, 1, 1, 1, 1), F16_SHADER_PACK(4, 4, 1, 1, 1, 2), F16_SHADER_PACK(4, 4, 1, 1, 1, 4),
-    F16_SHADER_PACK(4, 4, 1, 1, 2, 1), F16_SHADER_PACK(4, 4, 1, 1, 2, 2), F16_SHADER_PACK(4, 4, 1, 1, 2, 4),
-    F16_SHADER_PACK(4, 4, 1, 1, 4, 1), F16_SHADER_PACK(4, 4, 1, 1, 4, 2), F16_SHADER_PACK(4, 4, 1, 1, 4, 4),
-    F16_SHADER_PACK(4, 4, 1, 1, 8, 1), F16_SHADER_PACK(4, 4, 1, 1, 8, 2), F16_SHADER_PACK(4, 4, 1, 1, 8, 4),
-
-    F16_SHADER_PACK(4, 4, 1, 2, 1, 1), F16_SHADER_PACK(4, 4, 1, 2, 1, 2), F16_SHADER_PACK(4, 4, 1, 2, 1, 4),
-    F16_SHADER_PACK(4, 4, 1, 2, 2, 1), F16_SHADER_PACK(4, 4, 1, 2, 2, 2), F16_SHADER_PACK(4, 4, 1, 2, 2, 4),
-    F16_SHADER_PACK(4, 4, 1, 2, 4, 1), F16_SHADER_PACK(4, 4, 1, 2, 4, 2), F16_SHADER_PACK(4, 4, 1, 2, 4, 4),
-    F16_SHADER_PACK(4, 4, 1, 2, 8, 1), F16_SHADER_PACK(4, 4, 1, 2, 8, 2), F16_SHADER_PACK(4, 4, 1, 2, 8, 4),
-
-    F16_SHADER_PACK(4, 4, 1, 4, 1, 1), F16_SHADER_PACK(4, 4, 1, 4, 1, 2), F16_SHADER_PACK(4, 4, 1, 4, 1, 4),
-    F16_SHADER_PACK(4, 4, 1, 4, 2, 1), F16_SHADER_PACK(4, 4, 1, 4, 2, 2), F16_SHADER_PACK(4, 4, 1, 4, 2, 4),
-    F16_SHADER_PACK(4, 4, 1, 4, 4, 1), F16_SHADER_PACK(4, 4, 1, 4, 4, 2), F16_SHADER_PACK(4, 4, 1, 4, 4, 4),
-
-    // workgroup size = (4, 2, 2)
-    F16_SHADER_PACK(4, 2, 2, 1, 1, 1), F16_SHADER_PACK(4, 2, 2, 1, 1, 2), F16_SHADER_PACK(4, 2, 2, 1, 1, 4),
-    F16_SHADER_PACK(4, 2, 2, 1, 2, 1), F16_SHADER_PACK(4, 2, 2, 1, 2, 2), F16_SHADER_PACK(4, 2, 2, 1, 2, 4),
-    F16_SHADER_PACK(4, 2, 2, 1, 4, 1), F16_SHADER_PACK(4, 2, 2, 1, 4, 2), F16_SHADER_PACK(4, 2, 2, 1, 4, 4),
-    F16_SHADER_PACK(4, 2, 2, 1, 8, 1), F16_SHADER_PACK(4, 2, 2, 1, 8, 2), F16_SHADER_PACK(4, 2, 2, 1, 8, 4),
-
-    F16_SHADER_PACK(4, 2, 2, 2, 1, 1), F16_SHADER_PACK(4, 2, 2, 2, 1, 2), F16_SHADER_PACK(4, 2, 2, 2, 1, 4),
-    F16_SHADER_PACK(4, 2, 2, 2, 2, 1), F16_SHADER_PACK(4, 2, 2, 2, 2, 2), F16_SHADER_PACK(4, 2, 2, 2, 2, 4),
-    F16_SHADER_PACK(4, 2, 2, 2, 4, 1), F16_SHADER_PACK(4, 2, 2, 2, 4, 2), F16_SHADER_PACK(4, 2, 2, 2, 4, 4),
-    F16_SHADER_PACK(4, 2, 2, 2, 8, 1), F16_SHADER_PACK(4, 2, 2, 2, 8, 2), F16_SHADER_PACK(4, 2, 2, 2, 8, 4),
-
-    F16_SHADER_PACK(4, 2, 2, 4, 1, 1), F16_SHADER_PACK(4, 2, 2, 4, 1, 2), F16_SHADER_PACK(4, 2, 2, 4, 1, 4),
-    F16_SHADER_PACK(4, 2, 2, 4, 2, 1), F16_SHADER_PACK(4, 2, 2, 4, 2, 2), F16_SHADER_PACK(4, 2, 2, 4, 2, 4),
-    F16_SHADER_PACK(4, 2, 2, 4, 4, 1), F16_SHADER_PACK(4, 2, 2, 4, 4, 2), F16_SHADER_PACK(4, 2, 2, 4, 4, 4),
-
-    // workgroup size = (2, 4, 2)
-    F16_SHADER_PACK(2, 4, 2, 1, 1, 1), F16_SHADER_PACK(2, 4, 2, 1, 1, 2), F16_SHADER_PACK(2, 4, 2, 1, 1, 4),
-    F16_SHADER_PACK(2, 4, 2, 1, 2, 1), F16_SHADER_PACK(2, 4, 2, 1, 2, 2), F16_SHADER_PACK(2, 4, 2, 1, 2, 4),
-    F16_SHADER_PACK(2, 4, 2, 1, 4, 1), F16_SHADER_PACK(2, 4, 2, 1, 4, 2), F16_SHADER_PACK(2, 4, 2, 1, 4, 4),
-    F16_SHADER_PACK(2, 4, 2, 1, 8, 1), F16_SHADER_PACK(2, 4, 2, 1, 8, 2), F16_SHADER_PACK(2, 4, 2, 1, 8, 4),
-
-    F16_SHADER_PACK(2, 4, 2, 2, 1, 1), F16_SHADER_PACK(2, 4, 2, 2, 1, 2), F16_SHADER_PACK(2, 4, 2, 2, 1, 4),
-    F16_SHADER_PACK(2, 4, 2, 2, 2, 1), F16_SHADER_PACK(2, 4, 2, 2, 2, 2), F16_SHADER_PACK(2, 4, 2, 2, 2, 4),
-    F16_SHADER_PACK(2, 4, 2, 2, 4, 1), F16_SHADER_PACK(2, 4, 2, 2, 4, 2), F16_SHADER_PACK(2, 4, 2, 2, 4, 4),
-    F16_SHADER_PACK(2, 4, 2, 2, 8, 1), F16_SHADER_PACK(2, 4, 2, 2, 8, 2), F16_SHADER_PACK(2, 4, 2, 2, 8, 4),
-
-    F16_SHADER_PACK(2, 4, 2, 4, 1, 1), F16_SHADER_PACK(2, 4, 2, 4, 1, 2), F16_SHADER_PACK(2, 4, 2, 4, 1, 4),
-    F16_SHADER_PACK(2, 4, 2, 4, 2, 1), F16_SHADER_PACK(2, 4, 2, 4, 2, 2), F16_SHADER_PACK(2, 4, 2, 4, 2, 4),
-    F16_SHADER_PACK(2, 4, 2, 4, 4, 1), F16_SHADER_PACK(2, 4, 2, 4, 4, 2), F16_SHADER_PACK(2, 4, 2, 4, 4, 4),
-    // clang-format on
+    F16_WORKGROUP_PACK(64, 1, 1), F16_WORKGROUP_PACK(32, 2, 1),
+    F16_WORKGROUP_PACK(16, 4, 1), F16_WORKGROUP_PACK(16, 2, 2),
+    F16_WORKGROUP_PACK(8, 4, 2),  F16_WORKGROUP_PACK(4, 4, 4),
 };
+
+#elif defined(UVKC_MALI_VALHALL)
+
+#include "conv2d_f16_packed_shader_valhall_spirv_permutation.inc"
+#include "conv2d_f32_tiled_shader_valhall_spirv_permutation.inc"
+
+static ShaderCode kShaderCodeCases[] = {
+    F32_WORKGROUP_TILE(16, 1, 1), F32_WORKGROUP_TILE(8, 2, 1),
+    F32_WORKGROUP_TILE(4, 4, 1),  F32_WORKGROUP_TILE(4, 2, 2),
+
+    F16_WORKGROUP_PACK(16, 1, 1), F16_WORKGROUP_PACK(8, 2, 1),
+    F16_WORKGROUP_PACK(4, 4, 1),  F16_WORKGROUP_PACK(4, 2, 2),
+};
+
+#else
+#error "unsupported GPU architecture"
+#endif
+
+#undef F16_WORKGROUP_PACK
+#undef F32_WORKGROUP_TILE
 #undef F16_SHADER_TILE
 #undef F32_SHADER_TILE
 #undef F16_SHADER_PACK
