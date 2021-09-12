@@ -1,4 +1,4 @@
-name: Build for Android and Linux
+name: Build
 
 on:
   push:
@@ -15,8 +15,8 @@ jobs:
     container:
       image: antiagainst/uvkcompute-ci:latest
     steps:
-      - name: ls
-        run: pwd && ls 
+      - name: Checking out repository
+        uses: actions/checkout@v2
       - name: build
         run: ./tools/ci/build_linux.sh Debug
 # linux_release_build:
