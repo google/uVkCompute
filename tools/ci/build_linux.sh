@@ -33,7 +33,6 @@ ninja --version
 "${CXX?}" --version
 python3 --version
 
-# Cross compile towards Android
 SOURCE_ROOT=$(git rev-parse --show-toplevel)
 cd "${SOURCE_ROOT?}"
 git submodule update --init

@@ -1,0 +1,41 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  linux_debug_build:
+    name: Linux Debug Build
+    runs-on: ubuntu-20.04
+    container:
+      image: antiagainst/uvkcompute-ci:latest
+    steps:
+      - name: Checking out repository
+        uses: actions/checkout@v2
+      - name: Build
+        run: ./tools/ci/build_linux.sh Debug
+  linux_release_build:
+    name: Linux Release Build
+    runs-on: ubuntu-20.04
+    container:
+      image: antiagainst/uvkcompute-ci:latest
+    steps:
+      - name: Checking out repository
+        uses: actions/checkout@v2
+      - name: Build
+        run: ./tools/ci/build_linux.sh Release
+  android_release_build:
+    name: Android Release Build
+    runs-on: ubuntu-20.04
+    container:
+      image: antiagainst/uvkcompute-ci:latest
+    steps:
+      - name: Checking out repository
+        uses: actions/checkout@v2
+      - name: Build
+        run: ./tools/ci/build_android.sh
