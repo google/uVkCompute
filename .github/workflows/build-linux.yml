@@ -1,0 +1,25 @@
+name: Build for Linux
+
+on: [pull_request, push]
+
+jobs:
+  debug_build:
+    name: Linux Debug Build
+    runs-on: ubuntu-20.04
+    container:
+      image: antiagainst/uvkcompute-ci:latest
+      volumes: $PWD:/usr/src/uVkCompute
+      options: --workdir=/usr/src/uVkCompute
+    steps:
+      - name: build
+      - run: ./tools/ci/build_linux.sh Debug
+  release_build:
+    name: Linux Release Build
+    runs-on: ubuntu-20.04
+    container:
+      image: antiagainst/uvkcompute-ci:latest
+      volumes: $PWD:/usr/src/uVkCompute
+      options: --workdir=/usr/src/uVkCompute
+    steps:
+      - name: build
+      - run: ./tools/ci/build_linux.sh Release
