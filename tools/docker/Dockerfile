@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 WORKDIR /usr/src/
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
   apt-transport-https \
   ca-certificates \
   clang \
+  cmake \
   git \
   gnupg2 \
   ninja-build \
@@ -32,25 +33,13 @@ ENV CC=/usr/bin/clang
 ENV CXX=/usr/bin/clang++
 
 #===------------------------------------------------------------------------===#
-# CMake
-#===------------------------------------------------------------------------===#
-
-# Install a newer version of CMake because SwiftShader requires CMake 3.13+.
-RUN wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc \
-      | gpg --dearmor - \
-      | tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null \
-  && apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic main' \
-  && apt-get update \
-  && apt-get install -y cmake
-
-#===------------------------------------------------------------------------===#
 # Android NDK
 #===------------------------------------------------------------------------===#
 
-ARG ANDROID_NDK_VERSION=r21d
+ARG ANDROID_NDK_VERSION=r23
 
-RUN wget "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION?}-linux-x86_64.zip" \
-  && unzip "android-ndk-${ANDROID_NDK_VERSION?}-linux-x86_64.zip" -d /android-ndk && \
+RUN wget "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION?}-linux.zip" \
+  && unzip "android-ndk-${ANDROID_NDK_VERSION?}-linux.zip" -d /android-ndk && \
   rm -rf /usr/src
 
 ENV ANDROID_NDK="/android-ndk/android-ndk-${ANDROID_NDK_VERSION}"
@@ -59,12 +48,12 @@ ENV ANDROID_NDK="/android-ndk/android-ndk-${ANDROID_NDK_VERSION}"
 # Vulkan SDK
 #===------------------------------------------------------------------------===#
 
-ARG VULKAN_SDK_VERSION=1.2.148
+ARG VULKAN_SDK_VERSION=1.2.189
 
 RUN wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - \
   && wget -qO \
-    "/etc/apt/sources.list.d/lunarg-vulkan-${VULKAN_SDK_VERSION?}-bionic.list" \
-    "http://packages.lunarg.com/vulkan/${VULKAN_SDK_VERSION?}/lunarg-vulkan-${VULKAN_SDK_VERSION?}-bionic.list" \
+    "/etc/apt/sources.list.d/lunarg-vulkan-${VULKAN_SDK_VERSION?}-focal.list" \
+    "http://packages.lunarg.com/vulkan/${VULKAN_SDK_VERSION?}/lunarg-vulkan-${VULKAN_SDK_VERSION?}-focal.list" \
   && apt-get update \
   && apt-get install -y vulkan-sdk
 
@@ -72,7 +61,7 @@ RUN wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key a
 # SwiftShader Vulkan ICD
 #===------------------------------------------------------------------------===#
 
-ARG SWIFTSHADER_COMMIT=b3c1e71eb1cb55ba78a3f884ab4e68ef1bd396da
+ARG SWIFTSHADER_COMMIT=7f2c7d18de0c916a326d5bf4d3c2d301eff2f4ee
 
 RUN git clone https://github.com/google/swiftshader \
   && cd swiftshader && git checkout "${SWIFTSHADER_COMMIT?}" && cd .. \
@@ -81,7 +70,6 @@ RUN git clone https://github.com/google/swiftshader \
            -DSWIFTSHADER_BUILD_VULKAN=ON \
            -DSWIFTSHADER_BUILD_EGL=OFF \
            -DSWIFTSHADER_BUILD_GLESv2=OFF \
-           -DSWIFTSHADER_BUILD_GLES_CM=OFF \
            -DSWIFTSHADER_BUILD_PVR=OFF \
            -DSWIFTSHADER_BUILD_TESTS=OFF \
   && cmake --build build-swiftshader/ \
