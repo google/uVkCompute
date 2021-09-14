@@ -1,7 +1,7 @@
 # µVkCompute
 
-[![Build Status](https://travis-ci.org/google/uVkCompute.svg?branch=main)](https://travis-ci.org/google/uVkCompute)
-[![Build status](https://ci.appveyor.com/api/projects/status/qnk10ht2ighagrdg/branch/main?svg=true)](https://ci.appveyor.com/project/antiagainst/uvkcompute/branch/main)
+![Android/Linux Build Status](https://github.com/google/uVkCompute/actions/workflows/build-android-linux.yml/badge.svg)
+[![Windows Build status](https://ci.appveyor.com/api/projects/status/qnk10ht2ighagrdg/branch/main?svg=true)](https://ci.appveyor.com/project/antiagainst/uvkcompute/branch/main)
 
 µVkCompute is a micro Vulkan compute pipeline and a collection of compute
 shaders for benchmarking/profiling purposes.
