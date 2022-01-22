@@ -15,6 +15,7 @@
 # Suppress warnings from third-party projects
 set_property(DIRECTORY APPEND PROPERTY COMPILE_OPTIONS -w)
 
+set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
 add_subdirectory(abseil-cpp EXCLUDE_FROM_ALL)
 
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
