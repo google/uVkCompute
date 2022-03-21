@@ -87,12 +87,18 @@ binary with `LD_LIBRARY_PATH=/data/local/tmp`.
 
 ### Linux/macOS
 
+Install `clang` compiler first.
+```shell
+sudo apt install clang
+```
+
+Clone the repo and build.
 ```shell
 git clone https://github.com/google/uVkCompute.git
 cd uVkCompute
 git submodule update --init
 
-cmake -G Ninja -S ./ -B build/
+cmake -DCMAKE_C_COMPILER=$(which clang) -DCMAKE_CXX_COMPILER=$(which clang++) -G Ninja -S ./ -B build/
 cmake --build build/
 ```
 
