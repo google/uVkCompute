@@ -173,7 +173,7 @@ DynamicSymbols::CreateFromSystemLoader() {
       syms.get(), [loader_library_ptr](const char *function_name) {
         return loader_library_ptr->GetSymbol<PFN_vkVoidFunction>(function_name);
       }));
-  return syms;
+  return absl::StatusOr<std::unique_ptr<DynamicSymbols>>(std::move(syms));
 }
 
 absl::Status DynamicSymbols::LoadFromInstance(VkInstance instance) {
