@@ -19,7 +19,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "benchmark/benchmark.h"
-#include "uvkc/benchmark/fp16_util.h"
+#include "uvkc/benchmark/data_type_util.h"
 #include "uvkc/benchmark/main.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_buffer_util.h"
@@ -43,7 +43,7 @@ struct ShaderCode {
   int tileK;
   int wg_size_x;
   int wg_size_y;
-  Precision precision;
+  DataType data_type;
 };
 
 #define SHADER_TILE_F32(M, N, K, X, Y)                                       \
@@ -54,7 +54,7 @@ struct ShaderCode {
         sizeof(                                                              \
             matmul_tiled_f32::                                               \
                 TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_WG_X_##X##_WG_Y_##Y), \
-        M, N, K, X, Y, Precision::fp32                                       \
+        M, N, K, X, Y, DataType::fp32                                        \
   }
 
 #define SHADER_TILE_F16_TEX(M, N, K, T, X, Y)                                              \
@@ -65,7 +65,7 @@ struct ShaderCode {
         sizeof(                                                                            \
             matmul_tiled_f16::                                                             \
                 TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_TEXTURE_##T##_WG_X_##X##_WG_Y_##Y), \
-        M, N, K, X, Y, Precision::fp16                                                     \
+        M, N, K, X, Y, DataType::fp16                                                      \
   }
 
 // Try with and without texture.
@@ -125,7 +125,7 @@ static ShaderCode kShaderCodeCases[] = {
 static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    const ::uvkc::benchmark::LatencyMeasure *latency_measure,
                    const uint32_t *code, size_t code_num_words, int M, int N,
-                   int K, int tileM, int tileN, Precision precision) {
+                   int K, int tileM, int tileN, DataType data_type) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
@@ -151,9 +151,9 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===-------------------------------------------------------------------===/
   // Create buffers
   //===-------------------------------------------------------------------===/
-  const size_t src0_size = M * K * GetSize(precision);
-  const size_t src1_size = K * N * GetSize(precision);
-  const size_t dst_size = M * N * GetSize(precision);
+  const size_t src0_size = M * K * GetSize(data_type);
+  const size_t src1_size = K * N * GetSize(data_type);
+  const size_t dst_size = M * N * GetSize(data_type);
 
   BM_CHECK_OK_AND_ASSIGN(
       auto src0_buffer,
@@ -193,7 +193,7 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
     return v;
   };
 
-  if (precision == Precision::fp16) {
+  if (data_type == DataType::fp16) {
     BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
         device, src0_buffer.get(), src0_size, [&](void *ptr, size_t num_bytes) {
           uint16_t *src_float_buffer = reinterpret_cast<uint16_t *>(ptr);
@@ -225,7 +225,7 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
             }
           }
         }));
-  } else if (precision == Precision::fp32) {
+  } else if (data_type == DataType::fp32) {
     BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
         device, src0_buffer.get(), src0_size, [&](void *ptr, size_t num_bytes) {
           float *src_float_buffer = reinterpret_cast<float *>(ptr);
@@ -250,7 +250,7 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===-------------------------------------------------------------------===/
   // Dispatch
   //===-------------------------------------------------------------------===/
-  if (precision == Precision::fp16) {
+  if (data_type == DataType::fp16) {
     // For simplicity always bind the B matrix as both texture and buffer.
     std::vector<::uvkc::vulkan::Device::BoundImage> bound_images = {
         {src_image1.get(), src_sampler1.get(), /*set=*/0, /*binding=*/3}};
@@ -288,7 +288,7 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Verify destination buffer data
   //===-------------------------------------------------------------------===/
 
-  if (precision == Precision::fp16) {
+  if (data_type == DataType::fp16) {
     BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
         device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
           uint16_t *dst_float_buffer = reinterpret_cast<uint16_t *>(ptr);
@@ -306,7 +306,7 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
             }
           }
         }));
-  } else if (precision == Precision::fp32) {
+  } else if (data_type == DataType::fp32) {
     BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
         device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
           float *dst_float_buffer = reinterpret_cast<float *>(ptr);
@@ -418,9 +418,9 @@ void RegisterVulkanBenchmarks(
   const int M = 1024;
   const int N = 1024;
   const int K = 1024;
-  for (Precision precision : {Precision::fp32, Precision::fp16}) {
+  for (DataType data_type : {DataType::fp32, DataType::fp16}) {
     for (const auto &shader : kShaderCodeCases) {
-      if (shader.precision != precision) continue;
+      if (shader.data_type != data_type) continue;
       int paddM = (M + shader.tileM - 1) / shader.tileM * shader.tileM;
       int paddN = (N + shader.tileN - 1) / shader.tileN * shader.tileN;
       std::string matmul_size = absl::StrCat(M, "x", N, "x", K);
@@ -434,7 +434,7 @@ void RegisterVulkanBenchmarks(
       ::benchmark::RegisterBenchmark(
           test_name.c_str(), MatMul, device, latency_measure, shader.code,
           shader.code_num_bytes / sizeof(uint32_t), paddM, paddN, K,
-          shader.tileM, shader.tileN, shader.precision)
+          shader.tileM, shader.tileN, shader.data_type)
           ->UseManualTime()
           ->Unit(::benchmark::kMicrosecond);
     }

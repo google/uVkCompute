@@ -19,7 +19,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "benchmark/benchmark.h"
-#include "uvkc/benchmark/fp16_util.h"
+#include "uvkc/benchmark/data_type_util.h"
 #include "uvkc/benchmark/main.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_buffer_util.h"
@@ -27,10 +27,10 @@
 #include "uvkc/vulkan/device.h"
 #include "uvkc/vulkan/pipeline.h"
 
+using ::uvkc::benchmark::DataType;
 using ::uvkc::benchmark::fp16;
 using ::uvkc::benchmark::GetSize;
 using ::uvkc::benchmark::LatencyMeasureMode;
-using ::uvkc::benchmark::Precision;
 using ::uvkc::vulkan::Pipeline;
 
 static const char kBenchmarkName[] = "2d_convolution";
@@ -45,27 +45,27 @@ struct ShaderCode {
   int wg_size_y;          // gl_WorkGroupSize.y
   int wg_size_z;          // gl_WorkGroupSize.z
   int scalar_per_thread;  // Number of scalar elements each thread process
-  Precision precision;
+  DataType data_type;
 };
 
-#define SHADER_TILE(X, Y, Z, OH, OW, OC, T, Precision)                                                \
+#define SHADER_TILE(X, Y, Z, OH, OW, OC, T, DataType)                                                 \
   {                                                                                                   \
     WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC##_VEC4TYPE_##T,          \
         sizeof(                                                                                       \
             WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC##_VEC4TYPE_##T), \
-        OH, OW, OC, X, Y, Z, 4, Precision                                                             \
+        OH, OW, OC, X, Y, Z, 4, DataType                                                              \
   }
 #define F16_SHADER_TILE(X, Y, Z, OH, OW, OC) \
-  SHADER_TILE(X, Y, Z, OH, OW, OC, f16vec4, Precision::fp16)
+  SHADER_TILE(X, Y, Z, OH, OW, OC, f16vec4, DataType::fp16)
 #define F32_SHADER_TILE(X, Y, Z, OH, OW, OC) \
-  SHADER_TILE(X, Y, Z, OH, OW, OC, vec4, Precision::fp32)
+  SHADER_TILE(X, Y, Z, OH, OW, OC, vec4, DataType::fp32)
 
 #define F16_SHADER_PACK(X, Y, Z, OH, OW, OC)                                           \
   {                                                                                    \
     WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC,          \
         sizeof(                                                                        \
             WG_X_##X##_WG_Y_##Y##_WG_Z_##Z##_IVC_OH_##OH##_IVC_OW_##OW##_IVC_OC_##OC), \
-        OH, OW, OC, X, Y, Z, 8, Precision::fp16                                        \
+        OH, OW, OC, X, Y, Z, 8, DataType::fp16                                         \
   }
 
 // clang-format off
@@ -141,7 +141,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
                    int input_w, int input_c, int filter_h, int filter_w,
                    int output_c, int stride_h, int stride_w, int wg_size_x,
                    int wg_size_y, int wg_size_z, int wg_tile_oh, int wg_tile_ow,
-                   int wg_tile_oc, int scalar_per_thread, Precision precision) {
+                   int wg_tile_oc, int scalar_per_thread, DataType data_type) {
   int output_h = (input_h - filter_h) / stride_h + 1;
   int output_w = (input_w - filter_w) / stride_w + 1;
 
@@ -191,10 +191,10 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Create buffers
   //===---------------------------------------------------------------------===/
 
-  size_t input_size = input_h * input_w * input_c * GetSize(precision);
+  size_t input_size = input_h * input_w * input_c * GetSize(data_type);
   size_t filter_size =
-      filter_h * filter_w * input_c * output_c * GetSize(precision);
-  size_t output_size = output_h * output_w * output_c * GetSize(precision);
+      filter_h * filter_w * input_c * output_c * GetSize(data_type);
+  size_t output_size = output_h * output_w * output_c * GetSize(data_type);
 
   BM_CHECK_OK_AND_ASSIGN(
       auto input_buffer,
@@ -223,7 +223,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
     return ((h + w * 2 + ic * 3 + oc * 4) % 3) * 0.5f;
   };
 
-  if (precision == Precision::fp16) {
+  if (data_type == DataType::fp16) {
     BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
         device, input_buffer.get(), input_size,
         [&](void *ptr, size_t num_bytes) {
@@ -256,7 +256,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
             }
           }
         }));
-  } else if (precision == Precision::fp32) {
+  } else if (data_type == DataType::fp32) {
     BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
         device, input_buffer.get(), input_size,
         [&](void *ptr, size_t num_bytes) {
@@ -325,7 +325,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   // Verify destination buffer data
   //===---------------------------------------------------------------------===/
 
-  if (precision == Precision::fp16) {
+  if (data_type == DataType::fp16) {
     BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
         device, output_buffer.get(), output_size,
         [&](void *ptr, size_t num_bytes) {
@@ -357,7 +357,7 @@ static void Conv2D(::benchmark::State &state, ::uvkc::vulkan::Device *device,
             }
           }
         }));
-  } else if (precision == Precision::fp32) {
+  } else if (data_type == DataType::fp32) {
     BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
         device, output_buffer.get(), output_size,
         [&](void *ptr, size_t num_bytes) {
@@ -506,7 +506,7 @@ void RegisterVulkanBenchmarks(
       std::string shader_name = absl::StrCat(
           "Tile[", wg_tile_oh, "x", wg_tile_ow, "x", wg_tile_oc, "]/WGSize[",
           shader.wg_size_x, "x", shader.wg_size_y, "x", shader.wg_size_z, "]/",
-          (shader.precision == Precision::fp16 ? "f16" : "f32"));
+          (shader.data_type == DataType::fp16 ? "f16" : "f32"));
 
       std::string test_name =
           absl::StrCat(gpu_name, "/", workload_name, "/", shader_name);
@@ -517,7 +517,7 @@ void RegisterVulkanBenchmarks(
           data.input_c, data.filter_h, data.filter_w, data.output_c,
           data.stride_h, data.stride_w, shader.wg_size_x, shader.wg_size_y,
           shader.wg_size_z, wg_tile_oh, wg_tile_ow, wg_tile_oc,
-          shader.scalar_per_thread, shader.precision)
+          shader.scalar_per_thread, shader.data_type)
           ->UseManualTime()
           ->Unit(::benchmark::kMicrosecond);
     }

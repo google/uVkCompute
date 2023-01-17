@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,38 @@
 
 uvkc_cc_library(
   NAME
+    core
+  HDRS
+    "data_type_util.h"
+    "status_util.h"
+    "vulkan_buffer_util.h"
+    "vulkan_context.h"
+    "vulkan_image_util.h"
+  SRCS
+    "data_type_util.cc"
+    "status_util.cc"
+    "vulkan_buffer_util.cc"
+    "vulkan_context.cc"
+    "vulkan_image_util.cc"
+  DEPS
+    absl::status
+    absl::statusor
+    uvkc::base::log
+    uvkc::vulkan::buffer
+    uvkc::vulkan::device
+    uvkc::vulkan::driver
+    uvkc::vulkan::image
+)
+
+uvkc_glsl_shader_instance(
+  NAME
+    void_shader
+  SRC
+    "void_shader.glsl"
+)
+
+uvkc_cc_library(
+  NAME
     dispatch_void_shader
   SRCS
     "dispatch_void_shader.cc"
@@ -26,85 +58,16 @@ uvkc_cc_library(
 
 uvkc_cc_library(
   NAME
-    fp16_util
-  HDRS
-    "fp16_util.h"
-  SRCS
-    "fp16_util.cc"
-)
-
-uvkc_cc_library(
-  NAME
     main
   HDRS
     "main.h"
   SRCS
     "main.cc"
   DEPS
+    ::core
     ::dispatch_void_shader
-    ::status_util
-    ::vulkan_context
     absl::flags
     absl::flags_parse
     benchmark::benchmark
     uvkc::base::log
-)
-
-uvkc_cc_library(
-  NAME
-    status_util
-  HDRS
-    "status_util.h"
-  SRCS
-    "status_util.cc"
-  DEPS
-    absl::status
-    absl::statusor
-    uvkc::base::log
-)
-
-uvkc_glsl_shader_instance(
-  NAME
-    void_shader
-  SRC
-    "void_shader.glsl"
-)
-
-uvkc_cc_library(
-  NAME
-    vulkan_buffer_util
-  HDRS
-    "vulkan_buffer_util.h"
-  SRCS
-    "vulkan_buffer_util.cc"
-  DEPS
-    absl::status
-    uvkc::vulkan::buffer
-    uvkc::vulkan::device
-)
-
-uvkc_cc_library(
-  NAME
-    vulkan_context
-  HDRS
-    "vulkan_context.h"
-  SRCS
-    "vulkan_context.cc"
-  DEPS
-    absl::statusor
-    uvkc::vulkan::device
-    uvkc::vulkan::driver
-)
-
-uvkc_cc_library(
-  NAME
-    vulkan_image_util
-  HDRS
-    "vulkan_image_util.h"
-  SRCS
-    "vulkan_image_util.cc"
-  DEPS
-    absl::status
-    uvkc::vulkan::device
-    uvkc::vulkan::image
 )

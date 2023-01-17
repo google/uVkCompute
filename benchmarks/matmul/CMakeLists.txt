@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,10 +52,8 @@ uvkc_cc_binary(
     ::matmul_tiled_shader_f16_adreno
     ::matmul_tiled_shader_f32_adreno
     benchmark::benchmark
-    uvkc::benchmark::fp16_util
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
-    uvkc::benchmark::vulkan_image_util
   COPTS
     -DUVKC_ADRENO
 )
@@ -100,10 +98,8 @@ uvkc_cc_binary(
     ::matmul_tiled_shader_f16_valhall
     ::matmul_tiled_shader_f32_valhall
     benchmark::benchmark
-    uvkc::benchmark::fp16_util
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
-    uvkc::benchmark::vulkan_image_util
   COPTS
     -DUVKC_MALI_VALHALL
 )

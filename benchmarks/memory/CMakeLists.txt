@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ uvkc_cc_library(
     ::copy_storage_buffer_scalar_shader
     ::copy_storage_buffer_vector_shader
     benchmark::benchmark
-    uvkc::benchmark::vulkan_buffer_util
+    uvkc::benchmark::core
 )
 
 uvkc_cc_binary(
@@ -66,6 +66,5 @@ uvkc_cc_binary(
     ::copy_sampled_image_to_storage_buffer_shader
     benchmark::benchmark
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
-    uvkc::benchmark::vulkan_image_util
+    uvkc::benchmark::core
 )
