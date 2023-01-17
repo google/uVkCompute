@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,9 +50,8 @@ uvkc_cc_binary(
     ::conv2d_f16_packed_shader_adreno
     ::conv2d_f32_tiled_shader_adreno
     benchmark::benchmark
-    uvkc::benchmark::fp16_util
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
   COPTS
     -DUVKC_ADRENO
 )
@@ -95,9 +94,8 @@ uvkc_cc_binary(
     ::conv2d_f16_packed_shader_valhall
     ::conv2d_f32_tiled_shader_valhall
     benchmark::benchmark
-    uvkc::benchmark::fp16_util
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
   COPTS
     -DUVKC_MALI_VALHALL
 )
@@ -126,8 +124,8 @@ uvkc_cc_binary(
   DEPS
     ::depthwise_conv2d_tiled_shader_adreno
     benchmark::benchmark
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
   COPTS
     -DUVKC_ADRENO
 )
@@ -156,8 +154,8 @@ uvkc_cc_binary(
   DEPS
     ::depthwise_conv2d_tiled_shader_valhall
     benchmark::benchmark
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
   COPTS
     -DUVKC_MALI_VALHALL
 )

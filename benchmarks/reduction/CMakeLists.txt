@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,8 +63,8 @@ uvkc_cc_binary(
     ::atomic_reduce_subgroup_float_shader
     ::atomic_reduce_subgroup_int_shader
     benchmark::benchmark
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
 )
 
 uvkc_glsl_shader_permutation(
@@ -98,8 +98,8 @@ uvkc_cc_binary(
     ::tree_reduce_loop_shader
     ::tree_reduce_subgroup_shader
     benchmark::benchmark
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
 )
 
 uvkc_glsl_shader_instance(
@@ -137,6 +137,6 @@ uvkc_cc_binary(
     ::one_workgroup_reduce_loop_shader
     ::one_workgroup_reduce_subgroup_shader
     benchmark::benchmark
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
 )

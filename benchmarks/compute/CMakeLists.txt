@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,8 +29,7 @@ uvkc_cc_binary(
   DEPS
     ::mad_throughput_shader
     benchmark::benchmark
-    uvkc::benchmark::fp16_util
+    uvkc::benchmark::core
     uvkc::benchmark::main
-    uvkc::benchmark::vulkan_buffer_util
 )
 
