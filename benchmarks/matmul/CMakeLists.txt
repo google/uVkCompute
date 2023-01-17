@@ -43,6 +43,19 @@ uvkc_glsl_shader_permutation(
     "WG_Y=2"
 )
 
+uvkc_glsl_shader_permutation(
+  NAME
+    matmul_tiled_shader_i8_adreno
+  SRC
+    "matmul_tiled_i8.glsl"
+  PERMUTATION
+    "TILE_M=[2|4|8|16|32]"
+    "TILE_N=[128|256]"
+    "TILE_K=[4|8]"
+    "WG_X=32"
+    "WG_Y=2"
+)
+
 uvkc_cc_binary(
   NAME
     matmul_tiled_adreno
@@ -51,6 +64,7 @@ uvkc_cc_binary(
   DEPS
     ::matmul_tiled_shader_f16_adreno
     ::matmul_tiled_shader_f32_adreno
+    ::matmul_tiled_shader_i8_adreno
     benchmark::benchmark
     uvkc::benchmark::core
     uvkc::benchmark::main
@@ -89,6 +103,19 @@ uvkc_glsl_shader_permutation(
     "WG_Y=1"
 )
 
+uvkc_glsl_shader_permutation(
+  NAME
+    matmul_tiled_shader_i8_valhall
+  SRC
+    "matmul_tiled_i8.glsl"
+  PERMUTATION
+    "TILE_M=[2|4|8|16|32]"
+    "TILE_N=[64|128]"
+    "TILE_K=[4|8]"
+    "WG_X=16"
+    "WG_Y=1"
+)
+
 uvkc_cc_binary(
   NAME
     matmul_tiled_mali_valhall
@@ -97,10 +124,10 @@ uvkc_cc_binary(
   DEPS
     ::matmul_tiled_shader_f16_valhall
     ::matmul_tiled_shader_f32_valhall
+    ::matmul_tiled_shader_i8_valhall
     benchmark::benchmark
     uvkc::benchmark::core
     uvkc::benchmark::main
   COPTS
     -DUVKC_MALI_VALHALL
 )
-
