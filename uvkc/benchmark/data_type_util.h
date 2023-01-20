@@ -14,6 +14,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <ostream>
+#include <utility>
 
 namespace uvkc::benchmark {
 class fp16;
@@ -22,42 +24,73 @@ enum class DataType {
   fp16,
   fp32,
   i8,
+  i32,
 };
 
-template <DataType precision>
+template <DataType DT>
 struct DataTypeTraits {
   // Specialize this trait to support new data types.
   using storage_type = void;
   using runtime_type = void;
+  static constexpr char name[] = "";
 };
 
 template <>
 struct DataTypeTraits<DataType::fp16> {
   using storage_type = uint16_t;
   using runtime_type = fp16;
+  static constexpr char name[] = "fp16";
 };
 
 template <>
 struct DataTypeTraits<DataType::fp32> {
   using storage_type = float;
   using runtime_type = float;
+  static constexpr char name[] = "fp32";
 };
 
 template <>
 struct DataTypeTraits<DataType::i8> {
   using storage_type = int8_t;
   using runtime_type = int8_t;
+  static constexpr char name[] = "i8";
 };
 
-constexpr std::size_t GetSize(DataType data_type) {
+template <>
+struct DataTypeTraits<DataType::i32> {
+  using storage_type = int32_t;
+  using runtime_type = int32_t;
+  static constexpr char name[] = "i32";
+};
+
+/// Invokes the |fn| functor with a DataTypeTraits object matching |data_type|,
+/// followed by the remaining arguments |args|. This is useful when converting
+/// runtime data_type back to types available at the compilation time. Compared
+/// to ad-hoc switch statements, this helper makes it easier to *statically*
+/// make sure that all data types were handled.
+template <typename Fn, typename... Args>
+constexpr auto InvokeWithTraits(DataType data_type, Fn &&fn, Args &&...args) {
   switch (data_type) {
     case DataType::fp16:
-      return sizeof(DataTypeTraits<DataType::fp16>::storage_type);
+      return fn(DataTypeTraits<DataType::fp16>{}, std::forward<Args>(args)...);
     case DataType::fp32:
-      return sizeof(DataTypeTraits<DataType::fp32>::storage_type);
+      return fn(DataTypeTraits<DataType::fp32>{}, std::forward<Args>(args)...);
     case DataType::i8:
-      return sizeof(DataTypeTraits<DataType::i8>::storage_type);
+      return fn(DataTypeTraits<DataType::i8>{}, std::forward<Args>(args)...);
+    case DataType::i32:
+      return fn(DataTypeTraits<DataType::i32>{}, std::forward<Args>(args)...);
   }
+}
+
+constexpr std::size_t GetSize(DataType data_type) {
+  return InvokeWithTraits(data_type, [](auto traits) {
+    return sizeof(typename decltype(traits)::storage_type);
+  });
+}
+
+constexpr const char *GetName(DataType data_type) {
+  return InvokeWithTraits(data_type,
+                          [](auto traits) { return decltype(traits)::name; });
 }
 
 // Class to emulate half float on CPU.
@@ -78,11 +111,21 @@ class fp16 {
     fromFloat(toFloat() + x.toFloat());
     return *this;
   }
-  operator float() const { return toFloat(); }
+  fp16 operator*(const fp16 &rhs) const {
+    return fp16(toFloat() * rhs.toFloat());
+  }
+  bool operator==(const fp16 &rhs) const { return value_ == rhs.value_; }
+
+  explicit operator float() const { return toFloat(); }
+  explicit operator uint16_t() const { return getValue(); }
 
   void fromFloat(float x);
   float toFloat() const;
   uint16_t getValue() const { return value_; }
+
+  friend std::ostream &operator<<(std::ostream &os, const fp16 &value) {
+    return os << value.toFloat();
+  }
 
  private:
   uint16_t value_;
