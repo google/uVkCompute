@@ -38,6 +38,7 @@ static const char kBenchmarkName[] = "matmul_tiled";
 struct ShaderCode {
   const char *name;                 // Shader case name
   absl::Span<const uint32_t> code;  // SPIR-V code
+  bool texture;                     // Whether texture is used for the RHS
   int tileM;
   int tileN;
   int tileK;
@@ -52,7 +53,7 @@ struct ShaderCode {
     "Tile[" #M "x" #N "x" #K "]",                                       \
         matmul_tiled_f32::                                              \
             TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_WG_X_##X##_WG_Y_##Y, \
-        M, N, K, X, Y, DataType::fp32, DataType::fp32                   \
+        false, M, N, K, X, Y, DataType::fp32, DataType::fp32            \
   }
 
 #define SHADER_TILE_F16_TEX(M, N, K, T, X, Y)                                         \
@@ -60,7 +61,7 @@ struct ShaderCode {
     "Tile[" #M "x" #N "x" #K "]/Texture=" #T,                                         \
         matmul_tiled_f16::                                                            \
             TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_TEXTURE_##T##_WG_X_##X##_WG_Y_##Y, \
-        M, N, K, X, Y, DataType::fp16, DataType::fp16                                 \
+        static_cast<bool>(T), M, N, K, X, Y, DataType::fp16, DataType::fp16           \
   }
 
 #define SHADER_TILE_I8(M, N, K, X, Y)                                   \
@@ -68,7 +69,7 @@ struct ShaderCode {
     "Tile[" #M "x" #N "x" #K "]",                                       \
         matmul_tiled_i8::                                               \
             TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_WG_X_##X##_WG_Y_##Y, \
-        M, N, K, X, Y, DataType::i8, DataType::i32                      \
+        false, M, N, K, X, Y, DataType::i8, DataType::i32               \
   }
 
 // Try with and without texture.
@@ -166,9 +167,9 @@ static void FillBuffer(DataType data_type, void *raw_buffer, size_t num_bytes,
 /// |rhs|.
 template <DataType OutputType, DataType InputType, typename Generator1Fn,
           typename Generator2Fn>
-static void CheckOutput(void *raw_buffer, size_t num_bytes, unsigned M,
-                        unsigned N, unsigned K, Generator1Fn lhs,
-                        Generator2Fn rhs) {
+static void CheckOutput(const ShaderCode &shader, void *raw_buffer,
+                        size_t num_bytes, unsigned M, unsigned N, unsigned K,
+                        Generator1Fn lhs, Generator2Fn rhs) {
   using OutputTraits = DataTypeTraits<OutputType>;
   using OutputStorageType = typename OutputTraits::storage_type;
   using OutputRuntimeType = typename OutputTraits::runtime_type;
@@ -190,7 +191,8 @@ static void CheckOutput(void *raw_buffer, size_t num_bytes, unsigned M,
       BM_CHECK_EQ(gpuValue, acc)
           << "destination buffer element (" << i << "," << j << ")"
           << " has incorrect value: expected to be " << acc << " but found "
-          << gpuValue;
+          << gpuValue << "\n\t^ In shader: " << shader.name << ", "
+          << GetName(shader.input_type) << "->" << GetName(shader.output_type);
     }
   }
 }
@@ -278,7 +280,7 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
         FillBuffer(input_type, ptr, num_bytes, K, N, getSrc1);
       }));
 
-  if (input_type == DataType::fp16) {
+  if (shader.texture) {
     BM_CHECK_OK(::uvkc::benchmark::SetDeviceImageViaStagingBuffer(
         device, src_image1.get(), dimensions1,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, src1_size,
@@ -290,25 +292,31 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   //===-------------------------------------------------------------------===/
   // Dispatch
   //===-------------------------------------------------------------------===/
-  if (input_type == DataType::fp16) {
+  std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers;
+  if (shader.texture) {
     // For simplicity always bind the B matrix as both texture and buffer.
     std::vector<::uvkc::vulkan::Device::BoundImage> bound_images = {
         {src_image1.get(), src_sampler1.get(), /*set=*/0, /*binding=*/3}};
     BM_CHECK_OK(device->AttachImageToDescriptor(
         *shader_module, layout_set_map,
         {bound_images.data(), bound_images.size()}));
+    bound_buffers = {
+        {src0_buffer.get(), /*set=*/0, /*binding=*/0},
+        {dst_buffer.get(), /*set=*/0, /*binding=*/2},
+    };
+  } else {
+    bound_buffers = {
+        {src0_buffer.get(), /*set=*/0, /*binding=*/0},
+        {src1_buffer.get(), /*set=*/0, /*binding=*/1},
+        {dst_buffer.get(), /*set=*/0, /*binding=*/2},
+    };
   }
-  std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers = {
-      {src0_buffer.get(), /*set=*/0, /*binding=*/0},
-      {src1_buffer.get(), /*set=*/0, /*binding=*/1},
-      {dst_buffer.get(), /*set=*/0, /*binding=*/2},
-  };
   BM_CHECK_OK(device->AttachBufferToDescriptor(
       *shader_module, layout_set_map,
       {bound_buffers.data(), bound_buffers.size()}));
 
   BM_CHECK_EQ(shader_module->descriptor_set_layouts().size(), 1)
-      << "unexpected number of descriptor sets";
+      << "unexpected number of descriptor sets (" << shader.name << ")";
   auto descriptor_set_layout = shader_module->descriptor_set_layouts().front();
 
   std::vector<::uvkc::vulkan::CommandBuffer::BoundDescriptorSet>
@@ -331,20 +339,20 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   if (output_type == DataType::fp16) {
     BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
         device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
-          CheckOutput<DataType::fp16, DataType::fp16>(ptr, num_bytes, M, N, K,
-                                                      getSrc0, getSrc1);
+          CheckOutput<DataType::fp16, DataType::fp16>(shader, ptr, num_bytes, M,
+                                                      N, K, getSrc0, getSrc1);
         }));
   } else if (output_type == DataType::fp32) {
     BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
         device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
-          CheckOutput<DataType::fp32, DataType::fp32>(ptr, num_bytes, M, N, K,
-                                                      getSrc0, getSrc1);
+          CheckOutput<DataType::fp32, DataType::fp32>(shader, ptr, num_bytes, M,
+                                                      N, K, getSrc0, getSrc1);
         }));
   } else if (output_type == DataType::i32) {
     BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
         device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
-          CheckOutput<DataType::i32, DataType::i8>(ptr, num_bytes, M, N, K,
-                                                   getSrc0, getSrc1);
+          CheckOutput<DataType::i32, DataType::i8>(shader, ptr, num_bytes, M, N,
+                                                   K, getSrc0, getSrc1);
         }));
   } else {
     BM_CHECK(false) << "Unhandled output type";
