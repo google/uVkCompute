@@ -371,8 +371,15 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   } else if (output_type == DataType::i32) {
     BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
         device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
-          CheckOutput<DataType::i32, DataType::i8>(shader, ptr, num_bytes, M, N,
-                                                   K, getSrc0, getSrc1);
+          if (input_type == DataType::i8) {
+            CheckOutput<DataType::i32, DataType::i8>(shader, ptr, num_bytes, M,
+                                                     N, K, getSrc0, getSrc1);
+          } else if (input_type == DataType::i32) {
+            CheckOutput<DataType::i32, DataType::i32>(shader, ptr, num_bytes, M,
+                                                      N, K, getSrc0, getSrc1);
+          } else {
+            BM_CHECK(false) << "Unhandled input type";
+          }
         }));
   } else {
     BM_CHECK(false) << "Unhandled output type";
