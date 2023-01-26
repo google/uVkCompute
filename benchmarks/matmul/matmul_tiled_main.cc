@@ -64,6 +64,14 @@ struct ShaderCode {
         static_cast<bool>(T), M, N, K, X, Y, DataType::fp16, DataType::fp16           \
   }
 
+#define SHADER_TILE_I32(M, N, K, X, Y)                                  \
+  ShaderCode {                                                          \
+    "Tile[" #M "x" #N "x" #K "]",                                       \
+        matmul_tiled_i32::                                              \
+            TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_WG_X_##X##_WG_Y_##Y, \
+        false, M, N, K, X, Y, DataType::i32, DataType::i32              \
+  }
+
 #define SHADER_TILE_I8(M, N, K, X, Y)                                   \
   ShaderCode {                                                          \
     "Tile[" #M "x" #N "x" #K "]",                                       \
@@ -90,6 +98,13 @@ struct ShaderCode {
       SHADER_TILE_F32(4, N, 8, X, Y), SHADER_TILE_F32(8, N, 8, X, Y),  \
       SHADER_TILE_F32(16, N, 8, X, Y), SHADER_TILE_F32(32, N, 8, X, Y)
 
+#define WORKGROUP_TILE_N_I32(X, Y, N)                                  \
+  SHADER_TILE_I32(2, N, 4, X, Y), SHADER_TILE_I32(4, N, 4, X, Y),      \
+      SHADER_TILE_I32(8, N, 4, X, Y), SHADER_TILE_I32(16, N, 4, X, Y), \
+      SHADER_TILE_I32(32, N, 4, X, Y), SHADER_TILE_I32(2, N, 8, X, Y), \
+      SHADER_TILE_I32(4, N, 8, X, Y), SHADER_TILE_I32(8, N, 8, X, Y),  \
+      SHADER_TILE_I32(16, N, 8, X, Y), SHADER_TILE_I32(32, N, 8, X, Y)
+
 #define WORKGROUP_TILE_N_I8(X, Y, N)                                 \
   SHADER_TILE_I8(2, N, 4, X, Y), SHADER_TILE_I8(4, N, 4, X, Y),      \
       SHADER_TILE_I8(8, N, 4, X, Y), SHADER_TILE_I8(16, N, 4, X, Y), \
@@ -102,11 +117,12 @@ struct ShaderCode {
 namespace matmul_tiled_f32 {
 #include "matmul_tiled_shader_f32_adreno_spirv_permutation.inc"
 }
-
 namespace matmul_tiled_f16 {
 #include "matmul_tiled_shader_f16_adreno_spirv_permutation.inc"
 }
-
+namespace matmul_tiled_i32 {
+#include "matmul_tiled_shader_i32_adreno_spirv_permutation.inc"
+}
 namespace matmul_tiled_i8 {
 #include "matmul_tiled_shader_i8_adreno_spirv_permutation.inc"
 }
@@ -114,7 +130,8 @@ namespace matmul_tiled_i8 {
 static ShaderCode kShaderCodeCases[] = {
     WORKGROUP_TILE_N_F32(32, 2, 128), WORKGROUP_TILE_N_F32(32, 2, 256),
     WORKGROUP_TILE_N_F16(32, 2, 128), WORKGROUP_TILE_N_F16(32, 2, 256),
-    WORKGROUP_TILE_N_I8(32, 2, 128),
+    WORKGROUP_TILE_N_I32(32, 2, 128), WORKGROUP_TILE_N_I32(32, 2, 256),
+    WORKGROUP_TILE_N_I8(32, 2, 128),  WORKGROUP_TILE_N_I8(32, 2, 256),
 };
 
 #elif defined(UVKC_MALI_VALHALL)
@@ -125,7 +142,9 @@ namespace matmul_tiled_f32 {
 namespace matmul_tiled_f16 {
 #include "matmul_tiled_shader_f16_valhall_spirv_permutation.inc"
 }
-
+namespace matmul_tiled_i32 {
+#include "matmul_tiled_shader_i32_valhall_spirv_permutation.inc"
+}
 namespace matmul_tiled_i8 {
 #include "matmul_tiled_shader_i8_valhall_spirv_permutation.inc"
 }
@@ -133,6 +152,7 @@ namespace matmul_tiled_i8 {
 static ShaderCode kShaderCodeCases[] = {
     WORKGROUP_TILE_N_F32(16, 1, 64), WORKGROUP_TILE_N_F32(16, 1, 128),
     WORKGROUP_TILE_N_F16(8, 2, 64),  WORKGROUP_TILE_N_F16(8, 2, 128),
+    WORKGROUP_TILE_N_I32(16, 1, 64), WORKGROUP_TILE_N_I32(16, 1, 128),
     WORKGROUP_TILE_N_I8(16, 1, 64),  WORKGROUP_TILE_N_I8(16, 1, 128),
 };
 
@@ -450,7 +470,8 @@ void RegisterVulkanBenchmarks(
   const int N = 1024;
   const int K = 1024;
 
-  for (DataType input_type : {DataType::fp32, DataType::i8, DataType::fp16}) {
+  for (DataType input_type :
+       {DataType::fp32, DataType::i8, DataType::i32, DataType::fp16}) {
     for (const ShaderCode &shader : kShaderCodeCases) {
       if (shader.input_type != input_type) continue;
       int paddM = (M + shader.tileM - 1) / shader.tileM * shader.tileM;

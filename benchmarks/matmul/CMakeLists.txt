@@ -45,6 +45,19 @@ uvkc_glsl_shader_permutation(
 
 uvkc_glsl_shader_permutation(
   NAME
+    matmul_tiled_shader_i32_adreno
+  SRC
+    "matmul_tiled_i32.glsl"
+  PERMUTATION
+    "TILE_M=[2|4|8|16|32]"
+    "TILE_N=[128|256]"
+    "TILE_K=[4|8]"
+    "WG_X=32"
+    "WG_Y=2"
+)
+
+uvkc_glsl_shader_permutation(
+  NAME
     matmul_tiled_shader_i8_adreno
   SRC
     "matmul_tiled_i8.glsl"
@@ -64,6 +77,7 @@ uvkc_cc_binary(
   DEPS
     ::matmul_tiled_shader_f16_adreno
     ::matmul_tiled_shader_f32_adreno
+    ::matmul_tiled_shader_i32_adreno
     ::matmul_tiled_shader_i8_adreno
     benchmark::benchmark
     uvkc::benchmark::core
@@ -105,6 +119,19 @@ uvkc_glsl_shader_permutation(
 
 uvkc_glsl_shader_permutation(
   NAME
+    matmul_tiled_shader_i32_valhall
+  SRC
+    "matmul_tiled_i32.glsl"
+  PERMUTATION
+    "TILE_M=[2|4|8|16|32]"
+    "TILE_N=[64|128]"
+    "TILE_K=[4|8]"
+    "WG_X=16"
+    "WG_Y=1"
+)
+
+uvkc_glsl_shader_permutation(
+  NAME
     matmul_tiled_shader_i8_valhall
   SRC
     "matmul_tiled_i8.glsl"
@@ -124,6 +151,7 @@ uvkc_cc_binary(
   DEPS
     ::matmul_tiled_shader_f16_valhall
     ::matmul_tiled_shader_f32_valhall
+    ::matmul_tiled_shader_i32_valhall
     ::matmul_tiled_shader_i8_valhall
     benchmark::benchmark
     uvkc::benchmark::core
