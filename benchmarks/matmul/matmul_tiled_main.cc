@@ -310,6 +310,16 @@ static void MatMul(::benchmark::State &state, ::uvkc::vulkan::Device *device,
   }
 
   //===-------------------------------------------------------------------===/
+  // Clear the output buffer data set by the previous benchmark run
+  //===-------------------------------------------------------------------===/
+
+  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+      device, dst_buffer.get(), dst_size, [&](void *ptr, size_t num_bytes) {
+        FillBuffer(output_type, ptr, num_bytes, K, N,
+                   [](int, int) { return 0.0f; });
+      }));
+
+  //===-------------------------------------------------------------------===/
   // Dispatch
   //===-------------------------------------------------------------------===/
   std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers;
