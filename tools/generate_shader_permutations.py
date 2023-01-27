@@ -21,10 +21,11 @@ code are placed in the same output file.
 """
 
 import argparse
+import functools
 import itertools
+import multiprocessing
 import os
 import subprocess
-import sys
 
 
 def parse_arguments():
@@ -108,6 +109,30 @@ def generate_productions(defines):
     yield (var_name, compiler_defines)
 
 
+def compile_spirv(case, base_code_command, base_asm_command, verbose):
+  """Returns a string with the spirv variable for |case| by invoking the GLSL
+  compiler.
+  """
+  var_name = case[0]
+
+  # Generate SPIR-V code
+  command = base_code_command
+  command.extend(case[1])
+  if verbose:
+    print("glslc command: '{}'".format(" ".join(command)))
+  spirv_code = subprocess.check_output(command).decode("ascii")
+
+  # Generate SPIR-V assembly
+  command = base_asm_command
+  command.extend(case[1])
+  if verbose:
+    print("glslc command: '{}'".format(" ".join(command)))
+  spirv_asm = subprocess.check_output(command).decode("ascii")
+
+  return "static const uint32_t {}[] = {{\n/*\n{}*/\n{}}};\n".format(
+          var_name, spirv_asm, spirv_code)
+
+
 def main(args):
   # Base command for generating SPIR-V code
   base_code_command = [args.glslc, "-c", "-O", "-fshader-stage=compute",
@@ -119,28 +144,16 @@ def main(args):
                       args.infile.name, "-o", "-"]
   if args.glslc_arg:
     base_asm_command.extend(args.glslc_arg)
-  spirv_variables = []
 
-  for case in generate_productions(args.define):
-    var_name = case[0]
+  productions = generate_productions(args.define)
 
-    # Generate SPIR-V code
-    command = base_code_command
-    command.extend(case[1])
-    if args.verbose:
-      print("glslc command: '{}'".format(" ".join(command)))
-    spirv_code = subprocess.check_output(command).decode("ascii")
-
-    # Generate SPIR-V assembly
-    command = base_asm_command
-    command.extend(case[1])
-    if args.verbose:
-      print("glslc command: '{}'".format(" ".join(command)))
-    spirv_asm = subprocess.check_output(command).decode("ascii")
-
-    spirv_variables.append(
-        "static const uint32_t {}[] = {{\n/*\n{}*/\n{}}};\n".format(
-            var_name, spirv_asm, spirv_code))
+  # Compile all shaders in parallel. This preserves the original order of producitons.
+  with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+    generate_variable = functools.partial(compile_spirv,
+                                          base_code_command=base_code_command,
+                                          base_asm_command=base_asm_command,
+                                          verbose=args.verbose)
+    spirv_variables = pool.map(generate_variable, productions)
 
   all_variables = "\n".join(spirv_variables)
   args.outfile.write(all_variables)
