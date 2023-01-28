@@ -80,6 +80,14 @@ struct ShaderCode {
         false, M, N, K, X, Y, DataType::i8, DataType::i32               \
   }
 
+#define SHADER_TILE_I8_INNERPROD(M, N, K, X, Y)                         \
+  ShaderCode {                                                          \
+    "Tile[" #M "x" #N "x" #K "]/InnerProd",                             \
+        matmul_tiled_i8_innerproduct::                                  \
+            TILE_M_##M##_TILE_N_##N##_TILE_K_##K##_WG_X_##X##_WG_Y_##Y, \
+        false, M, N, K, X, Y, DataType::i8, DataType::i32               \
+  }
+
 // Try with and without texture.
 #define SHADER_TILE_F16(M, N, K, X, Y) \
   SHADER_TILE_F16_TEX(M, N, K, 1, X, Y), SHADER_TILE_F16_TEX(M, N, K, 0, X, Y)
@@ -112,6 +120,18 @@ struct ShaderCode {
       SHADER_TILE_I8(4, N, 8, X, Y), SHADER_TILE_I8(8, N, 8, X, Y),  \
       SHADER_TILE_I8(16, N, 8, X, Y), SHADER_TILE_I8(32, N, 8, X, Y)
 
+#define WORKGROUP_TILE_N_I8_INNERPROD(X, Y, N)  \
+  SHADER_TILE_I8_INNERPROD(2, N, 4, X, Y),      \
+      SHADER_TILE_I8_INNERPROD(4, N, 4, X, Y),  \
+      SHADER_TILE_I8_INNERPROD(8, N, 4, X, Y),  \
+      SHADER_TILE_I8_INNERPROD(16, N, 4, X, Y), \
+      SHADER_TILE_I8_INNERPROD(32, N, 4, X, Y), \
+      SHADER_TILE_I8_INNERPROD(2, N, 8, X, Y),  \
+      SHADER_TILE_I8_INNERPROD(4, N, 8, X, Y),  \
+      SHADER_TILE_I8_INNERPROD(8, N, 8, X, Y),  \
+      SHADER_TILE_I8_INNERPROD(16, N, 8, X, Y), \
+      SHADER_TILE_I8_INNERPROD(32, N, 8, X, Y)
+
 #if defined(UVKC_ADRENO)
 
 namespace matmul_tiled_f32 {
@@ -126,12 +146,21 @@ namespace matmul_tiled_i32 {
 namespace matmul_tiled_i8 {
 #include "matmul_tiled_shader_i8_adreno_spirv_permutation.inc"
 }
+namespace matmul_tiled_i8_innerproduct {
+#include "matmul_tiled_shader_i8_innerproduct_adreno_spirv_permutation.inc"
+}
 
 static ShaderCode kShaderCodeCases[] = {
-    WORKGROUP_TILE_N_F32(32, 2, 128), WORKGROUP_TILE_N_F32(32, 2, 256),
-    WORKGROUP_TILE_N_F16(32, 2, 128), WORKGROUP_TILE_N_F16(32, 2, 256),
-    WORKGROUP_TILE_N_I32(32, 2, 128), WORKGROUP_TILE_N_I32(32, 2, 256),
-    WORKGROUP_TILE_N_I8(32, 2, 128),  WORKGROUP_TILE_N_I8(32, 2, 256),
+    WORKGROUP_TILE_N_F32(32, 2, 128),
+    WORKGROUP_TILE_N_F32(32, 2, 256),
+    WORKGROUP_TILE_N_F16(32, 2, 128),
+    WORKGROUP_TILE_N_F16(32, 2, 256),
+    WORKGROUP_TILE_N_I32(32, 2, 128),
+    WORKGROUP_TILE_N_I32(32, 2, 256),
+    WORKGROUP_TILE_N_I8(32, 2, 128),
+    WORKGROUP_TILE_N_I8(32, 2, 256),
+    WORKGROUP_TILE_N_I8_INNERPROD(32, 2, 128),
+    WORKGROUP_TILE_N_I8_INNERPROD(32, 2, 256),
 };
 
 #elif defined(UVKC_MALI_VALHALL)
@@ -148,12 +177,16 @@ namespace matmul_tiled_i32 {
 namespace matmul_tiled_i8 {
 #include "matmul_tiled_shader_i8_valhall_spirv_permutation.inc"
 }
+namespace matmul_tiled_i8_innerproduct {
+#include "matmul_tiled_shader_i8_innerproduct_valhall_spirv_permutation.inc"
+}
 
 static ShaderCode kShaderCodeCases[] = {
-    WORKGROUP_TILE_N_F32(16, 1, 64), WORKGROUP_TILE_N_F32(16, 1, 128),
-    WORKGROUP_TILE_N_F16(8, 2, 64),  WORKGROUP_TILE_N_F16(8, 2, 128),
-    WORKGROUP_TILE_N_I32(16, 1, 64), WORKGROUP_TILE_N_I32(16, 1, 128),
-    WORKGROUP_TILE_N_I8(16, 1, 64),  WORKGROUP_TILE_N_I8(16, 1, 128),
+    WORKGROUP_TILE_N_F32(16, 1, 64),          WORKGROUP_TILE_N_F32(16, 1, 128),
+    WORKGROUP_TILE_N_F16(8, 2, 64),           WORKGROUP_TILE_N_F16(8, 2, 128),
+    WORKGROUP_TILE_N_I32(16, 1, 64),          WORKGROUP_TILE_N_I32(16, 1, 128),
+    WORKGROUP_TILE_N_I8_INNERPROD(16, 1, 64), WORKGROUP_TILE_N_I8(16, 1, 64),
+    WORKGROUP_TILE_N_I8(16, 1, 128),
 };
 
 #else
@@ -488,7 +521,7 @@ void RegisterVulkanBenchmarks(
   const int K = 1024;
 
   for (DataType input_type :
-       {DataType::fp32, DataType::i8, DataType::i32, DataType::fp16}) {
+       {DataType::i8, DataType::i32, DataType::fp32, DataType::fp16}) {
     for (const ShaderCode &shader : kShaderCodeCases) {
       if (shader.input_type != input_type) continue;
       int paddM = (M + shader.tileM - 1) / shader.tileM * shader.tileM;
