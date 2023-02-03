@@ -17,6 +17,8 @@ uvkc_glsl_shader_instance(
     copy_storage_buffer_scalar_shader
   SRC
     "copy_storage_buffer_scalar.glsl"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_glsl_shader_instance(
@@ -24,6 +26,8 @@ uvkc_glsl_shader_instance(
     copy_storage_buffer_vector_shader
   SRC
     "copy_storage_buffer_vector.glsl"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_cc_library(

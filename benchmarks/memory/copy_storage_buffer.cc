@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC
+// Copyright 2020-2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,14 @@
 
 #include "benchmarks/memory/copy_storage_buffer.h"
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <numeric>
 
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/types/span.h"
 #include "benchmark/benchmark.h"
 #include "uvkc/benchmark/main.h"
@@ -30,6 +33,7 @@
 #include "uvkc/vulkan/timestamp_query_pool.h"
 
 using ::uvkc::benchmark::LatencyMeasureMode;
+using ::uvkc::benchmark::memory::ShaderCode;
 
 static uint32_t kScalarShaderCode[] = {
 #include "copy_storage_buffer_scalar_shader_spirv_instance.inc"
@@ -39,35 +43,30 @@ static uint32_t kVectorShaderCode[] = {
 #include "copy_storage_buffer_vector_shader_spirv_instance.inc"
 };
 
-struct ShaderCode {
-  const char *name;       // Test case name
-  const uint32_t *code;   // SPIR-V code
-  size_t code_num_bytes;  // Number of bytes for SPIR-V code
-  int element_num_bytes;  // Number of bytes for each element in data array
-};
-
 static ShaderCode kShaderCodeCases[] = {
-    {"scalar", kScalarShaderCode, sizeof(kScalarShaderCode), 4},
-    {"vector", kVectorShaderCode, sizeof(kVectorShaderCode), 4 * 4},
+    {"scalar", kScalarShaderCode, 1, 1},  {"scalar", kScalarShaderCode, 1, 4},
+    {"scalar", kScalarShaderCode, 1, 16}, {"scalar", kScalarShaderCode, 1, 32},
+    {"vector", kVectorShaderCode, 4, 1},  {"vector", kVectorShaderCode, 4, 4},
+    {"vector", kVectorShaderCode, 4, 16}, {"vector", kVectorShaderCode, 4, 32},
 };
 
 static void CopyStorageBuffer(
     ::benchmark::State &state, ::uvkc::vulkan::Device *device,
     ::uvkc::benchmark::LatencyMeasureMode latency_measure_mode,
-    const double *overhead_latency_seconds, const uint32_t *code,
-    size_t code_num_words, size_t buffer_num_bytes, int num_elements,
-    double *avg_latency_seconds) {
+    const double *overhead_latency_seconds, const ShaderCode &shader,
+    int buffer_num_bytes, double *avg_latency_seconds) {
   //===-------------------------------------------------------------------===/
   // Create shader module, pipeline, and descriptor sets
   //===-------------------------------------------------------------------===/
 
-  BM_CHECK_OK_AND_ASSIGN(auto shader_module,
-                         device->CreateShaderModule(code, code_num_words));
+  BM_CHECK_OK_AND_ASSIGN(
+      auto shader_module,
+      device->CreateShaderModule(shader.code.data(), shader.code.size()));
 
   ::uvkc::vulkan::Pipeline::SpecConstant spec_constant = {};
   spec_constant.id = 0;
   spec_constant.type = ::uvkc::vulkan::Pipeline::SpecConstant::Type::s32;
-  spec_constant.value.s32 = num_elements;
+  spec_constant.value.s32 = shader.elements_per_thread;
   BM_CHECK_OK_AND_ASSIGN(
       auto pipeline, device->CreatePipeline(*shader_module, "main",
                                             absl::MakeSpan(&spec_constant, 1)));
@@ -94,7 +93,7 @@ static void CopyStorageBuffer(
           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, buffer_num_bytes));
 
   //===-------------------------------------------------------------------===/
-  // Set source buffer data
+  // Clear buffer data
   //===-------------------------------------------------------------------===/
 
   BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
@@ -105,9 +104,22 @@ static void CopyStorageBuffer(
                   src_float_buffer + num_bytes / sizeof(float), 0.0f);
       }));
 
+  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+      device, dst_buffer.get(), buffer_num_bytes,
+      [](void *ptr, size_t num_bytes) {
+        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
+        std::fill_n(dst_float_buffer, num_bytes / sizeof(float), 0.0f);
+      }));
+
   //===-------------------------------------------------------------------===/
   // Dispatch
   //===-------------------------------------------------------------------===/
+
+  const int num_elements =
+      buffer_num_bytes / (sizeof(float) * shader.vectorization_factor);
+  const int workgroup_x = 32;
+  const int elements_per_workgroup = workgroup_x * shader.elements_per_thread;
+  const int num_dispatches = std::max(num_elements / elements_per_workgroup, 1);
 
   std::vector<::uvkc::vulkan::Device::BoundBuffer> bound_buffers(2);
   bound_buffers[0].buffer = src_buffer.get();
@@ -133,7 +145,7 @@ static void CopyStorageBuffer(
   BM_CHECK_OK(dispatch_cmdbuf->Begin());
   dispatch_cmdbuf->BindPipelineAndDescriptorSets(
       *pipeline, {bound_descriptor_sets.data(), bound_descriptor_sets.size()});
-  dispatch_cmdbuf->Dispatch(num_elements / 32, 1, 1);
+  dispatch_cmdbuf->Dispatch(num_dispatches, 1, 1);
   BM_CHECK_OK(dispatch_cmdbuf->End());
   BM_CHECK_OK(device->QueueSubmitAndWait(*dispatch_cmdbuf));
 
@@ -144,12 +156,13 @@ static void CopyStorageBuffer(
   BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
       device, dst_buffer.get(), buffer_num_bytes,
       [](void *ptr, size_t num_bytes) {
-        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
-        for (int i = 0; i < num_bytes / sizeof(float); ++i) {
-          BM_CHECK_EQ(dst_float_buffer[i], i)
+        absl::Span<const float> values(static_cast<float *>(ptr),
+                                       num_bytes / sizeof(float));
+        for (int i = 0; i < values.size(); ++i) {
+          BM_CHECK_EQ(static_cast<int>(values[i]), i)
               << "destination buffer element #" << i
               << " has incorrect value: expected to be " << i << " but found "
-              << dst_float_buffer[i];
+              << values[i];
         }
       }));
 
@@ -178,7 +191,7 @@ static void CopyStorageBuffer(
       cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0);
     }
 
-    cmdbuf->Dispatch(num_elements / 32, 1, 1);
+    cmdbuf->Dispatch(num_dispatches, 1, 1);
 
     if (use_timestamp) {
       cmdbuf->WriteTimestamp(*query_pool, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
@@ -221,28 +234,22 @@ static void CopyStorageBuffer(
   BM_CHECK_OK(device->ResetCommandPool());
 }
 
-namespace uvkc {
-namespace benchmark {
+namespace uvkc::benchmark::memory {
 
-void RegisterCopyStorageBufferBenchmark(const char *gpu_name,
-                                        vulkan::Device *device,
-                                        size_t buffer_num_bytes,
-                                        StorageBufferElementType element_type,
-                                        LatencyMeasureMode latency_measure_mode,
-                                        const double *overhead_latency_seconds,
-                                        double *avg_latency_seconds) {
-  int shader_index = static_cast<int>(element_type);
-  const auto &shader = kShaderCodeCases[shader_index];
-  std::string test_name = absl::StrCat(gpu_name, "/copy_storage_buffer/",
-                                       shader.name, "/", buffer_num_bytes);
-  ::benchmark::RegisterBenchmark(
-      test_name.c_str(), CopyStorageBuffer, device, latency_measure_mode,
-      overhead_latency_seconds, shader.code,
-      shader.code_num_bytes / sizeof(uint32_t), buffer_num_bytes,
-      buffer_num_bytes / shader.element_num_bytes, avg_latency_seconds)
+absl::Span<const ShaderCode> GetShaderCodeCases() { return kShaderCodeCases; }
+
+void RegisterCopyStorageBufferBenchmark(
+    const char *gpu_name, vulkan::Device *device, size_t buffer_num_bytes,
+    const ShaderCode &shader, LatencyMeasureMode latency_measure_mode,
+    const double *overhead_latency_seconds, double *avg_latency_seconds) {
+  std::string test_name = absl::StrCat(
+      gpu_name, "/copy_storage_buffer/", shader.name, "/PerThread[",
+      shader.elements_per_thread, "]/Bytes[", buffer_num_bytes, "]");
+  ::benchmark::RegisterBenchmark(test_name.c_str(), CopyStorageBuffer, device,
+                                 latency_measure_mode, overhead_latency_seconds,
+                                 shader, buffer_num_bytes, avg_latency_seconds)
       ->UseManualTime()
       ->Unit(::benchmark::kMicrosecond);
 }
 
-}  // namespace benchmark
-}  // namespace uvkc
+}  // namespace uvkc::benchmark::memory

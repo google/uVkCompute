@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC
+// Copyright 2020-2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -288,11 +288,11 @@ absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
 bool RegisterVulkanOverheadBenchmark(
     const vulkan::Driver::PhysicalDeviceInfo &physical_device,
     vulkan::Device *device, double *overhead_seconds) {
-  RegisterCopyStorageBufferBenchmark(physical_device.v10_properties.deviceName,
-                                     device, kBufferNumElements * sizeof(float),
-                                     StorageBufferElementType::Float,
-                                     LatencyMeasureMode::kSystemSubmit,
-                                     /*overhead_seconds=*/0, overhead_seconds);
+  memory::RegisterCopyStorageBufferBenchmark(
+      physical_device.v10_properties.deviceName, device,
+      kBufferNumElements * sizeof(float), memory::GetShaderCodeCases().front(),
+      LatencyMeasureMode::kSystemSubmit,
+      /*overhead_seconds=*/0, overhead_seconds);
   return true;
 }
 

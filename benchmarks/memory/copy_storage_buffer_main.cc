@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC
+// Copyright 2020-2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,7 @@
 
 static const char kBenchmarkName[] = "copy_storage_buffer";
 
-namespace uvkc {
-namespace benchmark {
+namespace uvkc::benchmark {
 
 absl::StatusOr<std::unique_ptr<VulkanContext>> CreateVulkanContext() {
   return CreateDefaultVulkanContext(kBenchmarkName);
@@ -38,15 +37,13 @@ void RegisterVulkanBenchmarks(
 
   for (int shift = 20; shift < 26; ++shift) {  // Number of bytes: 1M -> 32M
     int num_bytes = 1 << shift;
-    for (auto element_type :
-         {StorageBufferElementType::Float, StorageBufferElementType::Float4}) {
+    for (const memory::ShaderCode &shader : memory::GetShaderCodeCases()) {
       double avg_latency_seconds = 0;
-      RegisterCopyStorageBufferBenchmark(
-          gpu_name, device, num_bytes, element_type, latency_measure->mode,
+      memory::RegisterCopyStorageBufferBenchmark(
+          gpu_name, device, num_bytes, shader, latency_measure->mode,
           &latency_measure->overhead_seconds, &avg_latency_seconds);
     }
   }
 }
 
-}  // namespace benchmark
-}  // namespace uvkc
+}  // namespace uvkc::benchmark
