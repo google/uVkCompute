@@ -96,20 +96,13 @@ static void CopyStorageBuffer(
   // Clear buffer data
   //===-------------------------------------------------------------------===/
 
-  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer<float>(
       device, src_buffer.get(), buffer_num_bytes,
-      [](void *ptr, size_t num_bytes) {
-        float *src_float_buffer = reinterpret_cast<float *>(ptr);
-        std::iota(src_float_buffer,
-                  src_float_buffer + num_bytes / sizeof(float), 0.0f);
-      }));
+      [](absl::Span<float> dst) { std::iota(dst.begin(), dst.end(), 0.0f); }));
 
-  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
+  BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer<float>(
       device, dst_buffer.get(), buffer_num_bytes,
-      [](void *ptr, size_t num_bytes) {
-        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
-        std::fill_n(dst_float_buffer, num_bytes / sizeof(float), 0.0f);
-      }));
+      [](absl::Span<float> dst) { std::fill(dst.begin(), dst.end(), 0.0f); }));
 
   //===-------------------------------------------------------------------===/
   // Dispatch
@@ -153,11 +146,9 @@ static void CopyStorageBuffer(
   // Verify destination buffer data
   //===-------------------------------------------------------------------===/
 
-  BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
+  BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer<float>(
       device, dst_buffer.get(), buffer_num_bytes,
-      [](void *ptr, size_t num_bytes) {
-        absl::Span<const float> values(static_cast<float *>(ptr),
-                                       num_bytes / sizeof(float));
+      [](absl::Span<const float> values) {
         for (int i = 0; i < values.size(); ++i) {
           BM_CHECK_EQ(static_cast<int>(values[i]), i)
               << "destination buffer element #" << i
