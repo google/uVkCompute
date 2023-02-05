@@ -13,7 +13,7 @@ Benchmarks memory bandwidth w.r.t. texture read.
 ### `copy_storage_buffer`
 
 Copies the tightly packed data array in one storage buffer A to another
-storage buffer B: each invocation copies either one scalar or a 4-element vector
+storage buffer B: each invocation copies either `N` scalar or `N` 4-element vectors
 in the array.
 
 Benchmarks memory bandwidth w.r.t. storage buffer.
