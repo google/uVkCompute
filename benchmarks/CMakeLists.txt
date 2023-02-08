@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2020-2023 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 add_subdirectory(compute)
 add_subdirectory(convolution)
 add_subdirectory(matmul)
+add_subdirectory(mmt)
 add_subdirectory(memory)
 add_subdirectory(overhead)
 add_subdirectory(reduction)

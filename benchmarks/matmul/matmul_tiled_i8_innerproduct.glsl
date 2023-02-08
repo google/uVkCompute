@@ -75,12 +75,9 @@ void main() {
         uint gk = k + k_pos;
         i16vec4 lhs = inputA.x[coordToOffset(y, gk, strideA) / 4];
         [[unroll]] for (uint j = 0; j < C_COLS; ++j) {
-          uint x = gID.x * TILE_N + j * WG_X + laneId.x;
-
-          int32_t acc = 0;
           i16vec4 rhs = B[k / 4][j];
           i16vec4 mul = lhs * rhs;
-          acc += int32_t(mul.x) + int32_t(mul.y) + int32_t(mul.z) + int32_t(mul.w);
+          int32_t acc = int32_t(mul.x) + int32_t(mul.y) + int32_t(mul.z) + int32_t(mul.w);
           C[i][j] += acc;
         }
       }
