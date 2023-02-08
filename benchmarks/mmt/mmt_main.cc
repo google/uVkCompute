@@ -81,6 +81,7 @@ namespace mmt_i8 {
 }
 
 static ShaderCode kShaderCodeCases[] = {
+    WORKGROUP_TILE_N_I8(16, 1, 16),
     WORKGROUP_TILE_N_I8(16, 1, 32),
     WORKGROUP_TILE_N_I8(16, 1, 64),
 };

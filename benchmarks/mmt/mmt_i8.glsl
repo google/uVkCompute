@@ -71,6 +71,8 @@ void main() {
   const uint x_offset = wgID.x * N0 + C_COLS * localID.x;
   const uint y_offset = wgID.y * M0 + C_ROWS * localID.y;
 
+  i8vec4 A[C_ROWS][K0_VEC];
+  i8vec4 B[K0_VEC][C_COLS];
   int32_t C[C_ROWS][C_COLS]; // Local data for the output.
 
   // Initialize result to zero.
@@ -81,15 +83,26 @@ void main() {
   }
 
   for (uint k = 0; k < K_VEC; k += K0_VEC) {
+    // Prefetch LHS and RHS.
     [[unroll]] for (uint i = 0; i < C_ROWS; ++i) {
       [[unroll]] for (uint kk = 0; kk < K0_VEC; ++kk) {
-        uint y = y_offset + i;
         uint gk = k + (kk + threadID) % K0_VEC;
-        i8vec4 lhs = inputA.x[coordToOffset(y, gk, strideA)];
+        A[i][kk] = inputA.x[coordToOffset(y_offset + i, gk, strideA)];
+      }
+    }
+    [[unroll]] for (uint j = 0; j < C_COLS; ++j) {
+      [[unroll]] for (uint kk = 0; kk < K0_VEC; ++kk) {
+        uint gk = k + (kk + threadID) % K0_VEC;
+        B[kk][j] = inputB.x[coordToOffset(x_offset + j, gk, strideB)];
+      }
+    }
+
+    [[unroll]] for (uint i = 0; i < C_ROWS; ++i) {
+      [[unroll]] for (uint kk = 0; kk < K0_VEC; ++kk) {
+        i8vec4 lhs = A[i][kk];
         [[unroll]] for (uint j = 0; j < C_COLS; ++j) {
           // Calculate the inner product `C[i, j] := sum(A[i, ..] * B[j, ..])`.
-          uint x = x_offset + j;
-          i8vec4 rhs = inputB.x[coordToOffset(x, gk, strideB)];
+          i8vec4 rhs = B[kk][j];
           C[i][j] += sdot(lhs, rhs);
         }
       }

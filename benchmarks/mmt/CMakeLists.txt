@@ -56,7 +56,7 @@ uvkc_glsl_shader_permutation(
     "mmt_i8.glsl"
   PERMUTATION
     "M0=[4|8|16|32]"
-    "N0=[32|64]"
+    "N0=[16|32|64]"
     "K0=[4|8|16]"
     "WG_X=16"
     "WG_Y=1"
