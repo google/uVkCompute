@@ -12,12 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(argmax)
-add_subdirectory(compute)
-add_subdirectory(convolution)
-add_subdirectory(matmul)
-add_subdirectory(mmt)
-add_subdirectory(memory)
-add_subdirectory(overhead)
-add_subdirectory(reduction)
-add_subdirectory(subgroup)
+uvkc_glsl_shader_instance(
+  NAME
+    one_workgroup_argmax_loop_shader
+  SRC
+    "one_workgroup_argmax_loop.glsl"
+)
+
+uvkc_glsl_shader_instance(
+  NAME
+    one_workgroup_argmax_subgroup_shader
+  SRC
+    "one_workgroup_argmax_subgroup.glsl"
+  GLSLC_ARGS
+    "--target-env=vulkan1.3"
+)
+
+uvkc_cc_binary(
+  NAME
+    one_workgroup_argmax
+  SRCS
+    "one_workgroup_argmax_main.cc"
+  DEPS
+    ::one_workgroup_argmax_loop_shader
+    ::one_workgroup_argmax_subgroup_shader
+    benchmark::benchmark
+    uvkc::benchmark::core
+    uvkc::benchmark::main
+)
