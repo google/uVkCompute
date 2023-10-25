@@ -1,3 +1,4 @@
+// Copyright 2023 Nod Inc.
 // Copyright 2023 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,26 +26,42 @@
 
 #extension GL_KHR_shader_subgroup_basic : enable
 
-layout(binding = 0) buffer InputA { i8vec4 x[]; } inputA;
-layout(binding = 1) buffer InputB { i8vec4 x[]; } inputB;
-layout(binding = 2) buffer Output { int32_t x[]; } outputO;
+// Multiplies vector `inputA` of length `K` by matrix `inputB`
+// of size `K x N`.
+// We use `K0` and `N0` to denote the tile sizes for N and K,
+// respectively.
+//
+// We assign `N0` rows for each subgroup to process.
+// Subgroups load a batch of values from the vector and the row,
+// calculate the inner product of the two, and accumulate the results at the
+// subgroup-level.
+// Each workgroup produces `N0` * `WG_Y` results. We assume that WG_X is the
+// same as the subgroup size to simplify the implementation. This is a shortcut
+// that should be fixed.
 
+layout(binding = 0) buffer InputA { i8vec4 x[]; } inputA;  // Input vector.
+layout(binding = 1) buffer InputB { i8vec4 x[]; } inputB;  // Input matrix.
+layout(binding = 2) buffer Output { int32_t x[]; } outputO;  // Output vector.
+
+// These are constants defined at compile time.
 layout(local_size_x = WG_X, local_size_y = WG_Y, local_size_z = 1) in;
 
 layout(constant_id = 0) const uint N = 1;
 layout(constant_id = 1) const uint K = 1;
 
+// We process 4-element vectors along the K dimension, at treat is as the.
+// effective element type.
 const uint VECTORIZE_K = 4;
 const uint K_VEC = K / VECTORIZE_K;
 const uint K0_VEC = K0 / VECTORIZE_K;
 
 const uint strideB = K_VEC; // Stride of the `inputB` matrix.
 
-// Each workgroup processes a total of N0 rows, therefore
-// each subgroup processes N0/WG_Y rows.
-const uint C_ROWS = N0 / WG_Y;
+// Each subgroup processes a total of N0 rows, therefore
+// each workgroup processes N0 * WG_Y rows.
+const uint WG_ROWS = N0 * WG_Y;
 
-/// Returns the index of `X[i, j]`, where `X` is a 2D matrix of stride |stride|.
+/// Returns the index of `X[i, j]`, where `X` is a 2D matrix of stride `stride`.
 uint coordToOffset(uint i, uint j, uint stride) { return stride * i + j; }
 
 int32_t sdot(i8vec4 lhs, i8vec4 rhs) {
@@ -57,28 +74,46 @@ void main() {
   const uvec2 localID = gl_LocalInvocationID.xy;
   const uint threadID = gl_SubgroupInvocationID;
 
-  const uint laneCount = gl_WorkGroupSize.x;
-  const uint partialVec = laneCount * K0_VEC;
+  // Offset between elements accessed by a thread in a workgroup.
+  const uint wgKStride = WG_X * K0_VEC;
 
-  // The start offsets of the tile processed by this thread in this workgroup.
-  const uint startRow = wgID.x * N0 + localID.y;
+  // The start offsets of the row tile processed by this thread in this workgroup.
+  const uint startRow = wgID.x * WG_ROWS;
 
-  for (uint r = startRow; r < startRow + C_ROWS * WG_Y; r += WG_Y) {
-    int32_t laneResult = 0;
+  // Local accumulator variable for the result. This will be written out to
+  // `outputO` at the end. This is so that we do not have to sychronize the writes
+  // inside the main loop.
+  int32_t tileC[WG_Y][N0];
+  for (uint j = 0; j < N0; ++j) {
+    tileC[localID.y][j] = 0;
+  }
 
-    for (uint k = 0; k < K_VEC; k += partialVec) {
+  for (uint k = 0; k < K_VEC; k += wgKStride) {
+    for (uint y = 0; y < N0; ++y) {
+      uint r = startRow + y * WG_Y + localID.y;
+      int32_t laneResult = 0;
+
       [[unroll]] for (uint kk = 0; kk < K0_VEC; ++kk) {
-        uint gk = k + kk + threadID * K0_VEC;
+        uint gk = k + kk * WG_X + threadID;
         i8vec4 lhs = inputA.x[gk];
         i8vec4 rhs = inputB.x[coordToOffset(r, gk, strideB)];
         laneResult += sdot(lhs, rhs);
       }
-    }
 
-    // Final reduction with one subgroup
-    int32_t wgResult = subgroupAdd(laneResult);
-    if (subgroupElect()) {
-      outputO.x[r] = wgResult;
+      // Final reduction with one subgroup.
+      tileC[localID.y][y] += subgroupAdd(laneResult);
     }
   }
+
+  for (uint j = 0; j < N0; ++j) {
+    uint r = startRow + j * WG_Y + localID.y;
+    // Make sure each memory location is written to by exactly one thread.
+    if (subgroupElect())
+      outputO.x[r] = tileC[localID.y][j];
+  }
+
+  // Assert that the subgroup and workgroup sizes match.
+  // This simplifies the code but doesn't have to be true on all targets.
+  if (threadID != localID.x)
+    outputO.x[0] = -1;
 }

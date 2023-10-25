@@ -54,24 +54,12 @@ struct ShaderCode {
   }
 
 #define WORKGROUP_TILE_N_I8(X, Y, N0) \
-  SHADER_I8(N0, 8, X, Y), SHADER_I8(N0, 8, X, Y)
+  SHADER_I8(N0, 8, X, Y), SHADER_I8(N0, 16, X, Y)
 
 #if defined(UVKC_RDNA3)
 
 namespace vmt_i8 {
 #include "vmt_i8_shader_rdna3_spirv_permutation.inc"
-}
-
-static ShaderCode kShaderCodeCases[] = {
-    WORKGROUP_TILE_N_I8(64, 1, 1), WORKGROUP_TILE_N_I8(64, 1, 2),
-    WORKGROUP_TILE_N_I8(64, 1, 4), WORKGROUP_TILE_N_I8(64, 2, 2),
-    WORKGROUP_TILE_N_I8(64, 2, 4), WORKGROUP_TILE_N_I8(64, 4, 4),
-};
-
-#elif defined(UVKC_PROMOTE_RDNA3)
-
-namespace vmt_i8 {
-#include "vmt_promote_lhs_i8_shader_rdna3_spirv_permutation.inc"
 }
 
 static ShaderCode kShaderCodeCases[] = {
@@ -187,16 +175,6 @@ static void Vmt(::benchmark::State &state, ::uvkc::vulkan::Device *device,
       device->CreateBuffer(
           VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
           VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, dst_size));
-
-  VkExtent3D dimensions1 = {uint32_t(N / 8), uint32_t(K), 1};
-  BM_CHECK_OK_AND_ASSIGN(
-      auto src_image1,
-      device->CreateImage(
-          VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_TYPE_2D,
-          VK_FORMAT_R32G32B32A32_SFLOAT, dimensions1, VK_IMAGE_TILING_OPTIMAL,
-          VK_IMAGE_VIEW_TYPE_2D));
-  BM_CHECK_OK_AND_ASSIGN(auto src_sampler1, device->CreateSampler());
 
   //===-------------------------------------------------------------------===/
   // Set source buffer data
@@ -339,8 +317,9 @@ static void Vmt(::benchmark::State &state, ::uvkc::vulkan::Device *device,
     BM_CHECK_OK(cmdbuf->Reset());
   }
 
-  double numOperation = double(N) * double(K) * 2.;
-  state.counters["Ops"] =
+  double numOperation =
+      double(N) * double(K) + double(K) + double(K) * sizeof(int32_t);
+  state.counters["Bytes"] =
       ::benchmark::Counter(numOperation,
                            ::benchmark::Counter::kIsIterationInvariant |
                                ::benchmark::Counter::kIsRate,
@@ -371,30 +350,31 @@ void RegisterVulkanBenchmarks(
     vulkan::Device *device, const LatencyMeasure *latency_measure) {
   const char *gpu_name = physical_device.v10_properties.deviceName;
 
-  const int N = 4096;
-  const int K = 4096;
+  for (const int sz : {4096, 8192, 16384}) {
+    const int N = sz;
+    const int K = sz;
+    for (const ShaderCode &shader : kShaderCodeCases) {
+      std::string vecmat_size = absl::StrCat(N, "x", K);
+      std::string tiling_scheme = absl::StrCat(shader.N0, "x", shader.K0);
+      BM_CHECK(isMultipleOf(N, shader.N0))
+          << "Incompatible tiling scheme: " << tiling_scheme;
+      BM_CHECK(isMultipleOf(K, shader.K0))
+          << "Incompatible tiling scheme: " << tiling_scheme;
+      BM_CHECK(isMultipleOf(shader.K0, 4))
+          << "Incompatible tiling scheme: " << tiling_scheme;
 
-  for (const ShaderCode &shader : kShaderCodeCases) {
-    std::string vecmat_size = absl::StrCat(N, "x", K);
-    std::string tiling_scheme = absl::StrCat(shader.N0, "x", shader.K0);
-    BM_CHECK(isMultipleOf(N, shader.N0))
-        << "Incompatible tiling scheme: " << tiling_scheme;
-    BM_CHECK(isMultipleOf(K, shader.K0))
-        << "Incompatible tiling scheme: " << tiling_scheme;
-    BM_CHECK(isMultipleOf(shader.K0, 4))
-        << "Incompatible tiling scheme: " << tiling_scheme;
-
-    std::string workgroup_size =
-        absl::StrCat(shader.wg_size_x, "x", shader.wg_size_y, "x1");
-    std::string type_info = absl::StrCat(GetName(shader.input_type), "->",
-                                         GetName(shader.output_type));
-    std::string test_name =
-        absl::StrCat(gpu_name, "/vmt[", vecmat_size, "]/", type_info, "/",
-                     shader.name, "/Workgroup[", workgroup_size, "]");
-    ::benchmark::RegisterBenchmark(test_name.c_str(), Vmt, device,
-                                   latency_measure, shader, N, K)
-        ->UseManualTime()
-        ->Unit(::benchmark::kMicrosecond);
+      std::string workgroup_size =
+          absl::StrCat(shader.wg_size_x, "x", shader.wg_size_y, "x1");
+      std::string type_info = absl::StrCat(GetName(shader.input_type), "->",
+                                           GetName(shader.output_type));
+      std::string test_name =
+          absl::StrCat(gpu_name, "/vmt[", vecmat_size, "]/", type_info, "/",
+                       shader.name, "/Workgroup[", workgroup_size, "]");
+      ::benchmark::RegisterBenchmark(test_name.c_str(), Vmt, device,
+                                     latency_measure, shader, N, K)
+          ->UseManualTime()
+          ->Unit(::benchmark::kMicrosecond);
+    }
   }
 }
 

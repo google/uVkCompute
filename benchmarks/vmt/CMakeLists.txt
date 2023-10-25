@@ -23,21 +23,7 @@ uvkc_glsl_shader_permutation(
     "vmt_i8.glsl"
   PERMUTATION
     "N0=[1|2|4]"
-    "K0=[8]"
-    "WG_X=64"
-    "WG_Y=[1|2|4]"
-  GLSLC_ARGS
-    "--target-env=vulkan1.1"
-)
-
-uvkc_glsl_shader_permutation(
-  NAME
-    vmt_promote_lhs_i8_shader_rdna3
-  SRC
-    "vmt_promote_lhs_i8.glsl"
-  PERMUTATION
-    "N0=[1|2|4]"
-    "K0=[8]"
+    "K0=[8|16|32]"
     "WG_X=64"
     "WG_Y=[1|2|4]"
   GLSLC_ARGS
@@ -51,53 +37,6 @@ uvkc_cc_binary(
     "vmt_main.cc"
   DEPS
     ::vmt_i8_shader_rdna3
-    benchmark::benchmark
-    uvkc::benchmark::core
-    uvkc::benchmark::main
-  COPTS
-  -DUVKC_RDNA3
-)
-
-uvkc_cc_binary(
-  NAME
-    vmt_promote_lhs_main_rdna3
-  SRCS
-    "vmt_main.cc"
-  DEPS
-    ::vmt_promote_lhs_i8_shader_rdna3
-    benchmark::benchmark
-    uvkc::benchmark::core
-    uvkc::benchmark::main
-  COPTS
-  -DUVKC_PROMOTE_RDNA3
-)
-
-#-------------------------------------------------------------------------------
-# Grid strided vmt (RDNA3)
-#-------------------------------------------------------------------------------
-
-uvkc_glsl_shader_permutation(
-  NAME
-    grid_strided_vmt_i8_shader_rdna3
-  SRC
-    "grid_strided_vmt_i8.glsl"
-  PERMUTATION
-    "B0=[128|256]"
-    "N0=[1|2|4]"
-    "K0=[4|8|16]"
-    "WG_X=64"
-    "WG_Y=[1|2|4]"
-  GLSLC_ARGS
-    "--target-env=vulkan1.1"
-)
-
-uvkc_cc_binary(
-  NAME
-    grid_strided_vmt_main_rdna3
-  SRCS
-    "grid_strided_vmt_main.cc"
-  DEPS
-    ::grid_strided_vmt_i8_shader_rdna3
     benchmark::benchmark
     uvkc::benchmark::core
     uvkc::benchmark::main
