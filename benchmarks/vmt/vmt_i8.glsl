@@ -61,6 +61,9 @@ const uint strideB = K_VEC; // Stride of the `inputB` matrix.
 // each workgroup processes N0 * WG_Y rows.
 const uint WG_ROWS = N0 * WG_Y;
 
+// Offset between elements accessed by a thread in a workgroup.
+const uint WG_K_STRIDE = WG_X * K0_VEC;
+
 /// Returns the index of `X[i, j]`, where `X` is a 2D matrix of stride `stride`.
 uint coordToOffset(uint i, uint j, uint stride) { return stride * i + j; }
 
@@ -74,42 +77,35 @@ void main() {
   const uvec2 localID = gl_LocalInvocationID.xy;
   const uint threadID = gl_SubgroupInvocationID;
 
-  // Offset between elements accessed by a thread in a workgroup.
-  const uint wgKStride = WG_X * K0_VEC;
-
   // The start offsets of the row tile processed by this thread in this workgroup.
   const uint startRow = wgID.x * WG_ROWS;
 
-  // Local accumulator variable for the result. This will be written out to
-  // `outputO` at the end. This is so that we do not have to sychronize the writes
-  // inside the main loop.
-  int32_t tileC[WG_Y][N0];
-  for (uint j = 0; j < N0; ++j) {
-    tileC[localID.y][j] = 0;
-  }
+  for (uint y = 0; y < N0; ++y) {
+    uint r = startRow + y * WG_Y + localID.y;
+    int32_t laneResult = 0;
+    i8vec4 tileA[K0_VEC];
+    i8vec4 tileB[K0_VEC];
 
-  for (uint k = 0; k < K_VEC; k += wgKStride) {
-    for (uint y = 0; y < N0; ++y) {
-      uint r = startRow + y * WG_Y + localID.y;
-      int32_t laneResult = 0;
-
+    for (uint k = 0; k < K_VEC; k += WG_K_STRIDE) {
+      // Prefetch LHS and RHS to reduce the latency.
       [[unroll]] for (uint kk = 0; kk < K0_VEC; ++kk) {
         uint gk = k + kk * WG_X + threadID;
-        i8vec4 lhs = inputA.x[gk];
-        i8vec4 rhs = inputB.x[coordToOffset(r, gk, strideB)];
-        laneResult += sdot(lhs, rhs);
+        tileB[kk] = inputB.x[coordToOffset(r, gk, strideB)];
+        tileA[kk] = inputA.x[gk];
       }
 
-      // Final reduction with one subgroup.
-      tileC[localID.y][y] += subgroupAdd(laneResult);
+      [[unroll]] for (uint kk = 0; kk < K0_VEC; ++kk) {
+        i8vec4 lhs = tileA[kk];
+        i8vec4 rhs = tileB[kk];
+        laneResult += sdot(lhs, rhs);
+      }
     }
-  }
 
-  for (uint j = 0; j < N0; ++j) {
-    uint r = startRow + j * WG_Y + localID.y;
-    // Make sure each memory location is written to by exactly one thread.
-    if (subgroupElect())
-      outputO.x[r] = tileC[localID.y][j];
+    // Final reduction with one subgroup.
+    int32_t sgResult = subgroupAdd(laneResult);
+    if (subgroupElect()) {
+      outputO.x[r] = sgResult;
+    }
   }
 
   // Assert that the subgroup and workgroup sizes match.
