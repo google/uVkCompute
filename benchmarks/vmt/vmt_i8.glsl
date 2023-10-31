@@ -39,8 +39,8 @@
 // same as the subgroup size to simplify the implementation. This is a shortcut
 // that should be fixed.
 
-layout(binding = 0) buffer InputA { i8vec4 x[]; } inputA;  // Input vector.
-layout(binding = 1) buffer InputB { i8vec4 x[]; } inputB;  // Input matrix.
+layout(binding = 0) buffer InputA { i32vec4 x[]; } inputA;  // Input vector.
+layout(binding = 1) buffer InputB { i32vec4 x[]; } inputB;  // Input matrix.
 layout(binding = 2) buffer Output { int32_t x[]; } outputO;  // Output vector.
 
 // These are constants defined at compile time.
@@ -49,9 +49,9 @@ layout(local_size_x = WG_X, local_size_y = WG_Y, local_size_z = 1) in;
 layout(constant_id = 0) const uint N = 1;
 layout(constant_id = 1) const uint K = 1;
 
-// We process 4-element vectors along the K dimension, at treat is as the.
-// effective element type.
-const uint VECTORIZE_K = 4;
+// We process 16-element i8 vectors along the K dimension, and treat i32vec4
+// (packed format) as the effective element type.
+const uint VECTORIZE_K = 16;
 const uint K_VEC = K / VECTORIZE_K;
 const uint K0_VEC = K0 / VECTORIZE_K;
 
@@ -67,9 +67,15 @@ const uint WG_K_STRIDE = WG_X * K0_VEC;
 /// Returns the index of `X[i, j]`, where `X` is a 2D matrix of stride `stride`.
 uint coordToOffset(uint i, uint j, uint stride) { return stride * i + j; }
 
-int32_t sdot(i8vec4 lhs, i8vec4 rhs) {
+int32_t sdot(int32_t lhsPacked, int32_t rhsPacked) {
+  i8vec4 lhs = unpack8(lhsPacked);
+  i8vec4 rhs = unpack8(rhsPacked);
   i16vec4 mul = i16vec4(lhs) * i16vec4(rhs);
   return int32_t(mul.x) + int32_t(mul.y) + int32_t(mul.z) + int32_t(mul.w);
+}
+
+int32_t sdot4(i32vec4 lhs, i32vec4 rhs) {
+  return sdot(lhs.x, rhs.x) + sdot(lhs.y, rhs.y) + sdot(lhs.z, rhs.z) + sdot(lhs.w, rhs.w);
 }
 
 void main() {
@@ -83,8 +89,8 @@ void main() {
   for (uint y = 0; y < N0; ++y) {
     uint r = startRow + y * WG_Y + localID.y;
     int32_t laneResult = 0;
-    i8vec4 tileA[K0_VEC];
-    i8vec4 tileB[K0_VEC];
+    i32vec4 tileA[K0_VEC];
+    i32vec4 tileB[K0_VEC];
 
     for (uint k = 0; k < K_VEC; k += WG_K_STRIDE) {
       // Prefetch LHS and RHS to reduce the latency.
@@ -95,9 +101,9 @@ void main() {
       }
 
       [[unroll]] for (uint kk = 0; kk < K0_VEC; ++kk) {
-        i8vec4 lhs = tileA[kk];
-        i8vec4 rhs = tileB[kk];
-        laneResult += sdot(lhs, rhs);
+        i32vec4 lhs = tileA[kk];
+        i32vec4 rhs = tileB[kk];
+        laneResult += sdot4(lhs, rhs);
       }
     }
 

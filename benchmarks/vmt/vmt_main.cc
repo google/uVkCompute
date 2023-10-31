@@ -54,8 +54,9 @@ struct ShaderCode {
         N0, K0, X, Y, DataType::i8, DataType::i32                             \
   }
 
-#define WORKGROUP_TILE_N_I8(X, Y, N0) \
-  SHADER_I8(N0, 8, X, Y), SHADER_I8(N0, 16, X, Y)
+#define WORKGROUP_TILE_N_I8(X, Y, N0)                                        \
+  SHADER_I8(N0, 16, X, Y), SHADER_I8(N0, 32, X, Y), SHADER_I8(N0, 64, X, Y), \
+      SHADER_I8(N0, 128, X, Y)
 
 #if defined(UVKC_RDNA3)
 
