@@ -80,9 +80,7 @@ ABSL_FLAG(uvkc::benchmark::LatencyMeasureMode, latency_measure_mode,
 static RENDERDOC_API_1_6_0 *GetRdocApi() {
   static bool initialized = false;
   static RENDERDOC_API_1_6_0 *rdoc_api = nullptr;
-  if (initialized) {
-    return rdoc_api;
-  }
+  if (initialized) return rdoc_api;
 
   // Only attempt to initialize once. If the first attempt fails, we will always
   // return `nullptr` in the future.
@@ -109,9 +107,7 @@ static RENDERDOC_API_1_6_0 *GetRdocApi() {
 
 static void StartRenderDocCapture(VkInstance instance) {
   auto *rdoc_api = GetRdocApi();
-  if (!rdoc_api) {
-    return;
-  }
+  if (!rdoc_api) return;
 
   void *device = RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(instance);
   rdoc_api->StartFrameCapture(device, /*wndHandle=*/nullptr);
@@ -119,9 +115,7 @@ static void StartRenderDocCapture(VkInstance instance) {
 
 static void EndRenderDocCapture(VkInstance instance) {
   auto *rdoc_api = GetRdocApi();
-  if (!rdoc_api) {
-    return;
-  }
+  if (!rdoc_api) return;
 
   void *device = RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(instance);
   rdoc_api->EndFrameCapture(device, /*wndHandle=*/nullptr);
