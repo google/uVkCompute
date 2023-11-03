@@ -21,11 +21,10 @@
 #include "absl/flags/usage.h"
 #include "absl/strings/string_view.h"
 #include "benchmark/benchmark.h"
+#include "renderdoc/renderdoc_app.h"
 #include "uvkc/benchmark/dispatch_void_shader.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_context.h"
-
-#include "renderdoc/renderdoc_app.h"
 
 // Platform-specific includes for RenderDoc.
 #ifdef __linux__
