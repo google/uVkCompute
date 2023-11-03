@@ -70,4 +70,5 @@ uvkc_cc_library(
     absl::flags_parse
     benchmark::benchmark
     uvkc::base::log
+    renderdoc
 )

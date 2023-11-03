@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2023 Advanced Micro Devices, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Suppress warnings from third-party projects
-set_property(DIRECTORY APPEND PROPERTY COMPILE_OPTIONS -w)
+add_library(renderdoc INTERFACE)
 
-set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
-add_subdirectory(abseil-cpp EXCLUDE_FROM_ALL)
-
-set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
-set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(benchmark EXCLUDE_FROM_ALL)
-
-add_subdirectory(renderdoc)
+target_include_directories(renderdoc INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/..")
