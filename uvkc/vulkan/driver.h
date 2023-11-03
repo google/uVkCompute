@@ -54,6 +54,8 @@ class Driver {
   absl::StatusOr<std::unique_ptr<Device>> CreateDevice(
       const PhysicalDeviceInfo &physical_device, VkQueueFlags queue_flags);
 
+  VkInstance GetInstance() { return instance_; }
+
  private:
   explicit Driver(VkInstance instance, const DynamicSymbols &symbols);
 

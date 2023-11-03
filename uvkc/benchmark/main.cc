@@ -1,4 +1,5 @@
-// Copyright 2020 Google LLC
+// Copyright 2020-2023 Google LLC
+// Copyright 2023 Advanced Micro Devices, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +21,15 @@
 #include "absl/flags/usage.h"
 #include "absl/strings/string_view.h"
 #include "benchmark/benchmark.h"
+#include "renderdoc/renderdoc_app.h"
 #include "uvkc/benchmark/dispatch_void_shader.h"
 #include "uvkc/benchmark/status_util.h"
 #include "uvkc/benchmark/vulkan_context.h"
+
+// Platform-specific includes for RenderDoc.
+#ifdef __linux__
+#include <dlfcn.h>
+#endif
 
 namespace uvkc {
 namespace benchmark {
@@ -63,9 +70,56 @@ std::string AbslUnparseFlag(LatencyMeasureMode mode) {
 }  // namespace benchmark
 }  // namespace uvkc
 
+ABSL_FLAG(bool, enable_renderdoc, false, "Enable RenderDoc");
+
 ABSL_FLAG(uvkc::benchmark::LatencyMeasureMode, latency_measure_mode,
           uvkc::benchmark::LatencyMeasureMode::kSystemSubmit,
           "Latency measure modes");
+
+/// Returns the RenderDoc API handle on success, or `nullptr` on failure.
+static RENDERDOC_API_1_6_0 *GetRdocApi() {
+  static bool initialized = false;
+  static RENDERDOC_API_1_6_0 *rdoc_api = nullptr;
+  if (initialized) return rdoc_api;
+
+  // Only attempt to initialize once. If the first attempt fails, we will always
+  // return `nullptr` in the future.
+  initialized = true;
+
+  // Based on https://renderdoc.org/docs/in_application_api.html.
+#ifdef __linux__
+  {
+    void *mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD);
+    BM_CHECK(mod) << "Failed to load librenderdoc.so";
+    pRENDERDOC_GetAPI RENDERDOC_GetAPI =
+        reinterpret_cast<pRENDERDOC_GetAPI>(dlsym(mod, "RENDERDOC_GetAPI"));
+    int ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0,
+                               reinterpret_cast<void **>(&rdoc_api));
+    BM_CHECK_EQ(ret, 1) << "RenderDoc initialization failed";
+  }
+#else
+  // TODO: Support other platforms.
+  BM_CHECK(false) << "RenderDoc integration not implemented on this platform";
+#endif
+
+  return rdoc_api;
+}
+
+static void StartRenderDocCapture(VkInstance instance) {
+  auto *rdoc_api = GetRdocApi();
+  if (!rdoc_api) return;
+
+  void *device = RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(instance);
+  rdoc_api->StartFrameCapture(device, /*wndHandle=*/nullptr);
+}
+
+static void EndRenderDocCapture(VkInstance instance) {
+  auto *rdoc_api = GetRdocApi();
+  if (!rdoc_api) return;
+
+  void *device = RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(instance);
+  rdoc_api->EndFrameCapture(device, /*wndHandle=*/nullptr);
+}
 
 extern "C" int main(int argc, char **argv) {
   // We use two command-line libraries: Abseil's and Google Benchmark's. Both
@@ -78,12 +132,14 @@ extern "C" int main(int argc, char **argv) {
   // errors.
 
   absl::SetProgramUsageMessage(R"(Run Vulkan compute benchmarks
+    --enable_renderdoc=[false|true]
+      * true: starts a renderdoc capture
     --latency_measure_mode=[system_submit|system_dispatch|gpu_timestamp]
       * system_submit: time spent from queue submit to returning from queue wait
       * system_dispatch: system_submit subtracted by time for void dispatch
       * gpu_timestamp: timestamp difference measured on GPU
 
-  Optional flags from Google Benchmark library:
+  Optional flags from the Google Benchmark library:
     [--benchmark_list_tests={true|false}]
     [--benchmark_filter=<regex>]
     [--benchmark_min_time=<min_time>]
@@ -132,5 +188,16 @@ extern "C" int main(int argc, char **argv) {
                                               &context->latency_measure);
   }
 
+  // If requested, tell the running RenderDoc instance when the capture begin
+  // and when it ends. This is required because, similar to most GPU profilers,
+  // RenderDoc is frame-based, while uVkCompute is a headless compute
+  // application that does not present any frames that profiles can
+  // automatically attach to.
+  VkInstance instance = context->driver->GetInstance();
+  const bool useRenderDoc = absl::GetFlag(FLAGS_enable_renderdoc);
+  if (useRenderDoc) StartRenderDocCapture(instance);
+
   ::benchmark::RunSpecifiedBenchmarks();
+
+  if (useRenderDoc) EndRenderDocCapture(instance);
 }
