@@ -74,7 +74,7 @@ static void CalculateSubgroupArithmetic(
     ::benchmark::State &state, ::uvkc::vulkan::Device *device,
     const ::uvkc::benchmark::LatencyMeasure *latency_measure,
     const uint32_t *code, size_t code_num_words, int num_elements,
-    uint32_t subgroup_size, Arithmetic arith_op) {
+    uint32_t proposed_subgroup_size, Arithmetic arith_op) {
   size_t buffer_num_bytes = num_elements * sizeof(float);
 
   //===-------------------------------------------------------------------===/
@@ -116,10 +116,11 @@ static void CalculateSubgroupArithmetic(
   //===-------------------------------------------------------------------===/
 
   // +: fill the whole buffer as 1.0f.
-  // *: fill with alternating subgroup_size and (1 / subgroup_size).
+  // *: fill with alternating values of proposed_subgroup_size and
+  //    (1 / proposed_subgroup_size).
   BM_CHECK_OK(::uvkc::benchmark::SetDeviceBufferViaStagingBuffer(
       device, src_buffer.get(), buffer_num_bytes,
-      [arith_op, subgroup_size](void *ptr, size_t num_bytes) {
+      [arith_op, proposed_subgroup_size](void *ptr, size_t num_bytes) {
         float *src_float_buffer = reinterpret_cast<float *>(ptr);
         switch (arith_op) {
           case Arithmetic::Add: {
@@ -129,8 +130,8 @@ static void CalculateSubgroupArithmetic(
           } break;
           case Arithmetic::Mul: {
             for (int i = 0; i < num_bytes / sizeof(float); i += 2) {
-              src_float_buffer[i] = subgroup_size;
-              src_float_buffer[i + 1] = 1.0f / subgroup_size;
+              src_float_buffer[i] = proposed_subgroup_size;
+              src_float_buffer[i + 1] = 1.0f / proposed_subgroup_size;
             }
           } break;
         }
@@ -171,14 +172,17 @@ static void CalculateSubgroupArithmetic(
 
   BM_CHECK_OK(::uvkc::benchmark::GetDeviceBufferViaStagingBuffer(
       device, dst_buffer.get(), buffer_num_bytes,
-      [arith_op, subgroup_size](void *ptr, size_t num_bytes) {
-        float *dst_float_buffer = reinterpret_cast<float *>(ptr);
+      [arith_op, proposed_subgroup_size](void *ptr, size_t num_bytes) {
+        const uint32_t actual_subgroup_size =
+            reinterpret_cast<uint32_t *>(ptr)[0];
+        float *dst_float_buffer = reinterpret_cast<float *>(ptr) + 1;
+        const auto num_floats = (num_bytes / sizeof(float)) - 1;
         switch (arith_op) {
           case Arithmetic::Add: {
-            for (int i = 0; i < num_bytes / sizeof(float); ++i) {
+            for (int i = 0; i < num_floats; ++i) {
               float expected_value = 1.0f;
-              if (i % subgroup_size == 0) {
-                expected_value = subgroup_size;
+              if (i % actual_subgroup_size == 0) {
+                expected_value = actual_subgroup_size;
               }
 
               BM_CHECK_EQ(dst_float_buffer[i], expected_value)
@@ -188,14 +192,14 @@ static void CalculateSubgroupArithmetic(
             }
           } break;
           case Arithmetic::Mul: {
-            for (int i = 0; i < num_bytes / sizeof(float); ++i) {
+            for (int i = 0; i < num_floats; ++i) {
               float expected_value = 0.0f;
-              if (i % subgroup_size == 0) {
+              if (i % actual_subgroup_size == 0) {
                 expected_value = 1.0f;
               } else if (i % 2 == 0) {
-                expected_value = subgroup_size;
+                expected_value = proposed_subgroup_size;
               } else {
-                expected_value = 1.0f / subgroup_size;
+                expected_value = 1.0f / proposed_subgroup_size;
               }
 
               BM_CHECK_EQ(dst_float_buffer[i], expected_value)
