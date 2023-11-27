@@ -74,30 +74,105 @@ absl::StatusOr<uint32_t> SelectQueueFamily(VkPhysicalDevice physical_device,
 
 }  // namespace
 
+void Driver::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+  createInfo = {};
+  createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+  createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+  createInfo.pfnUserCallback = debugCallback;
+}
+
+bool Driver::CheckValidationLayerSupport(DynamicSymbols *symbols) {
+  uint32_t layerCount;
+  symbols->vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+  std::vector<VkLayerProperties> availableLayers(layerCount);
+  symbols->vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+  
+  const std::vector<const char*> validationLayers = {
+      "VK_LAYER_KHRONOS_validation"
+  };
+  for (const char* layerName : validationLayers) {
+      bool layerFound = false;
+
+      for (const auto& layerProperties : availableLayers) {
+          if (strcmp(layerName, layerProperties.layerName) == 0) {
+              layerFound = true;
+              break;
+          }
+      }
+
+      if (!layerFound) {
+          return false;
+      }
+  }
+
+  return true;
+}
+
 absl::StatusOr<std::unique_ptr<Driver>> Driver::Create(
     const char *app_name, DynamicSymbols *symbols) {
   auto app_info = GetDefaultApplicationInfo(app_name);
 
   VkInstanceCreateInfo create_info = {};
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  create_info.pNext = nullptr;
   create_info.flags = 0;
   create_info.pApplicationInfo = &app_info;
+
+#define DEBUG (1)
+#if DEBUG
+  const bool support_validation = CheckValidationLayerSupport(symbols);
+  if (not support_validation) {
+    fprintf(stderr, "validation layers requested, but not available!\n");
+  } else {
+    std::vector<const char*> applicationExtensions = {VK_EXT_DEBUG_REPORT_EXTENSION_NAME};
+    create_info.enabledExtensionCount = static_cast<uint32_t>(applicationExtensions.size());
+    create_info.ppEnabledExtensionNames = applicationExtensions.data();
+
+    std::vector<const char*> validLayerNames = {
+        "VK_LAYER_LUNARG_assistant_layer",
+        "VK_LAYER_LUNARG_standard_validation",
+        "VK_LAYER_KHRONOS_validation",
+    };
+    create_info.enabledLayerCount = static_cast<uint32_t>(validLayerNames.size());
+    create_info.ppEnabledLayerNames = validLayerNames.data();
+
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+    PopulateDebugMessengerCreateInfo(debugCreateInfo);
+    create_info.pNext =  (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
+  }
+#else
   create_info.enabledLayerCount = 0;
-  create_info.ppEnabledExtensionNames = nullptr;
+  // create_info.ppEnabledLayerNames = nullptr;
   create_info.enabledExtensionCount = 0;
   create_info.ppEnabledExtensionNames = nullptr;
+  create_info.pNext = nullptr;
+#endif
 
   VkInstance instance = VK_NULL_HANDLE;
   VK_RETURN_IF_ERROR(symbols->vkCreateInstance(
       &create_info, /*pAllocator=*/nullptr, &instance));
 
+  VkDebugUtilsMessengerEXT messenger;
+#if DEBUG
+  if (support_validation) {
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+    PopulateDebugMessengerCreateInfo(debugCreateInfo);
+    if (symbols->vkCreateDebugUtilsMessengerEXT(instance, &debugCreateInfo, /*pAllocator=*/nullptr, &messenger) != VK_SUCCESS) {
+      throw std::runtime_error("failed to set up debug messenger!");
+    }
+  }
+#endif
+
   UVKC_RETURN_IF_ERROR(symbols->LoadFromInstance(instance));
 
-  return absl::WrapUnique(new Driver(instance, *symbols));
+  return absl::WrapUnique(new Driver(instance, *symbols, messenger));
 }
 
 Driver::~Driver() {
+#if DEBUG
+  symbols_.vkDestroyDebugUtilsMessengerEXT(instance_, messenger_, /*pAllocator=*/nullptr);
+#endif
   symbols_.vkDestroyInstance(instance_, /*pAllocator=*/nullptr);
 }
 
@@ -171,8 +246,8 @@ absl::StatusOr<std::unique_ptr<Device>> Driver::CreateDevice(
       physical_device.v10_properties.limits.timestampPeriod, device, symbols_);
 }
 
-Driver::Driver(VkInstance instance, const DynamicSymbols &symbols)
-    : instance_(instance), symbols_(symbols) {}
+Driver::Driver(VkInstance instance, const DynamicSymbols &symbols, VkDebugUtilsMessengerEXT messenger)
+    : instance_(instance), symbols_(symbols),  messenger_(messenger){}
 
 }  // namespace vulkan
 }  // namespace uvkc
