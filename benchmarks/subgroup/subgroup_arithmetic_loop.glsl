@@ -15,6 +15,7 @@
 #version 450 core
 
 #extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
@@ -27,12 +28,14 @@ layout(set = 0, binding = 0) buffer InputBuffer {
 // Use an output buffer of the same size to make sure we use each element
 // in the input buffer.
 layout(set = 0, binding = 1) buffer OutputBuffer {
+    uint actual_subgroup_size;
     float output_values[kArraySize];
 };
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
-    uint count = gl_SubgroupSize;
+    uint subgroup_size = subgroupBallotBitCount(subgroupBallot(true));
+    uint count = subgroup_size;
     float value = 0.f;
 
     if (subgroupElect()) {
@@ -50,5 +53,6 @@ void main() {
       value = input_values[index];
     }
 
+    actual_subgroup_size = subgroup_size;
     output_values[index] = value;
 }
