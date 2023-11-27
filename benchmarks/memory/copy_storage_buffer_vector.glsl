@@ -16,6 +16,7 @@
 
 #extension GL_EXT_control_flow_attributes : enable
 #extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
 
 layout (local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
@@ -32,11 +33,12 @@ layout(set = 0, binding = 1) buffer OutputBuffer {
 const uint WG_X = 32;
 
 void main() {
+    const uint subgroup_size = subgroupBallotBitCount(subgroupBallot(true));
     // Must guarantee index is in range during dispatch.
     uint index = gl_WorkGroupID.x * WG_X * kElementsPerThread +
-                 gl_SubgroupID * gl_SubgroupSize * kElementsPerThread +
+                 gl_SubgroupID * subgroup_size * kElementsPerThread +
                  gl_SubgroupInvocationID;
-    uint stride = gl_SubgroupSize;
+    uint stride = subgroup_size;
     // We want to space out memory accesses by `stride`, so that adjacent threads
     // access adjacent memory.
     [[unroll]] for (uint i = 0; i < kElementsPerThread; ++i, index += stride) {
