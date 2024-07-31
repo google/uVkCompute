@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+add_subdirectory(argmax)
 add_subdirectory(compute)
 add_subdirectory(convolution)
 add_subdirectory(matmul)
