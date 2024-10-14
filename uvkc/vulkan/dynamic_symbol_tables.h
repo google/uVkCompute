@@ -42,7 +42,7 @@ namespace vulkan {
 #define UVKC_VULKAN_DYNAMIC_SYMBOL_INSTANCELESS_TABLE(INS_PFN) \
   INS_PFN(REQUIRED, vkCreateInstance)                          \
   INS_PFN(EXCLUDED, vkEnumerateInstanceExtensionProperties)    \
-  INS_PFN(EXCLUDED, vkEnumerateInstanceLayerProperties)        \
+  INS_PFN(REQUIRED, vkEnumerateInstanceLayerProperties)        \
   INS_PFN(OPTIONAL, vkEnumerateInstanceVersion)
 
 // Defines the list of instance/device symbols that are queried from
@@ -300,12 +300,12 @@ namespace vulkan {
   DEV_PFN(EXCLUDED, vkSignalSemaphoreKHR)                               \
                                                                         \
   INS_PFN(EXCLUDED, vkCreateDebugReportCallbackEXT)                     \
-  INS_PFN(EXCLUDED, vkCreateDebugUtilsMessengerEXT)                     \
+  INS_PFN(REQUIRED, vkCreateDebugUtilsMessengerEXT)                     \
   INS_PFN(EXCLUDED, vkCreateDisplayPlaneSurfaceKHR)                     \
   INS_PFN(EXCLUDED, vkCreateHeadlessSurfaceEXT)                         \
   INS_PFN(EXCLUDED, vkDebugReportMessageEXT)                            \
   INS_PFN(EXCLUDED, vkDestroyDebugReportCallbackEXT)                    \
-  INS_PFN(EXCLUDED, vkDestroyDebugUtilsMessengerEXT)                    \
+  INS_PFN(REQUIRED, vkDestroyDebugUtilsMessengerEXT)                    \
   INS_PFN(REQUIRED, vkDestroyInstance)                                  \
   INS_PFN(EXCLUDED, vkDestroySurfaceKHR)                                \
   INS_PFN(EXCLUDED, vkEnumeratePhysicalDeviceGroups)                    \

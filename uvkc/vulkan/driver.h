@@ -27,6 +27,16 @@
 namespace uvkc {
 namespace vulkan {
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData) {
+
+    std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+    return VK_FALSE;
+}
 // A class representing a Vulkan driver.
 //
 // This class is the beginning of all interaction with the Vulkan system. It
@@ -37,6 +47,8 @@ class Driver {
   // Creates a Vulkan driver for an application with the given |app_name|.
   static absl::StatusOr<std::unique_ptr<Driver>> Create(
       const char *app_name, DynamicSymbols *symbols);
+  static bool CheckValidationLayerSupport(DynamicSymbols *symbols);
+  static void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 
   ~Driver();
 
@@ -57,11 +69,13 @@ class Driver {
   VkInstance GetInstance() { return instance_; }
 
  private:
-  explicit Driver(VkInstance instance, const DynamicSymbols &symbols);
+  explicit Driver(VkInstance instance, const DynamicSymbols &symbols, VkDebugUtilsMessengerEXT messenger);
 
   VkInstance instance_;
 
   const DynamicSymbols &symbols_;
+
+  VkDebugUtilsMessengerEXT messenger_;
 };
 
 }  // namespace vulkan
