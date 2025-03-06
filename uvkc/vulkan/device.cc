@@ -344,7 +344,7 @@ absl::StatusOr<uint32_t> Device::SelectMemoryType(
     uint32_t supported_memory_types,
     VkMemoryPropertyFlags desired_memory_properties) {
   for (int i = 0; i < memory_properties_.memoryTypeCount; ++i) {
-    if ((supported_memory_types & (1 << i)) &&
+    if ((supported_memory_types & memory_properties_.memoryTypes[i].propertyFlags) &&
         ((memory_properties_.memoryTypes[i].propertyFlags &
           desired_memory_properties) == desired_memory_properties))
       return i;
