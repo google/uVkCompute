@@ -11,7 +11,7 @@ on:
 jobs:
   linux_debug_build:
     name: Linux Debug Build
-    runs-on: ubuntu-20.04
+    runs-on: 'ubuntu-24.04'
     container:
       image: antiagainst/uvkcompute-ci:latest
     steps:
@@ -21,7 +21,7 @@ jobs:
         run: ./tools/ci/build_linux.sh Debug
   linux_release_build:
     name: Linux Release Build
-    runs-on: ubuntu-20.04
+    runs-on: 'ubuntu-24.04'
     container:
       image: antiagainst/uvkcompute-ci:latest
     steps:
@@ -31,7 +31,7 @@ jobs:
         run: ./tools/ci/build_linux.sh Release
   android_release_build:
     name: Android Release Build
-    runs-on: ubuntu-20.04
+    runs-on: 'ubuntu-24.04'
     container:
       image: antiagainst/uvkcompute-ci:latest
     steps:
