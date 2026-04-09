@@ -1,5 +1,15 @@
 # µVkCompute
 
+***THIS PROJECT HAS BEEN ARCHIVED***
+
+This project is no longer maintained.
+
+It has been put into a read-only state: new issues and pull requests
+will be ignored.
+
+# Overview
+
+
 ![Android/Linux Build Status](https://github.com/google/uVkCompute/actions/workflows/build-android-linux.yml/badge.svg)
 [![Windows Build status](https://ci.appveyor.com/api/projects/status/qnk10ht2ighagrdg/branch/main?svg=true)](https://ci.appveyor.com/project/antiagainst/uvkcompute/branch/main)
 
