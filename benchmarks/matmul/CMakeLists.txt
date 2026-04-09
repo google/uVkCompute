@@ -28,6 +28,8 @@ uvkc_glsl_shader_permutation(
     "TEXTURE=[1|0]"
     "WG_X=32"
     "WG_Y=2"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_glsl_shader_permutation(
@@ -41,6 +43,8 @@ uvkc_glsl_shader_permutation(
     "TILE_K=[4|8]"
     "WG_X=32"
     "WG_Y=2"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_glsl_shader_permutation(
@@ -54,6 +58,8 @@ uvkc_glsl_shader_permutation(
     "TILE_K=[4|8]"
     "WG_X=32"
     "WG_Y=2"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_glsl_shader_permutation(
@@ -67,6 +73,8 @@ uvkc_glsl_shader_permutation(
     "TILE_K=[4|8]"
     "WG_X=32"
     "WG_Y=2"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_glsl_shader_permutation(
@@ -80,6 +88,8 @@ uvkc_glsl_shader_permutation(
     "TILE_K=[4|8]"
     "WG_X=32"
     "WG_Y=2"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_cc_binary(
@@ -116,6 +126,8 @@ uvkc_glsl_shader_permutation(
     "TEXTURE=[1|0]"
     "WG_X=8"
     "WG_Y=2"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_glsl_shader_permutation(
@@ -129,6 +141,8 @@ uvkc_glsl_shader_permutation(
     "TILE_K=[4|8]"
     "WG_X=16"
     "WG_Y=1"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_glsl_shader_permutation(
@@ -142,6 +156,8 @@ uvkc_glsl_shader_permutation(
     "TILE_K=[4|8]"
     "WG_X=16"
     "WG_Y=1"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_glsl_shader_permutation(
@@ -155,6 +171,8 @@ uvkc_glsl_shader_permutation(
     "TILE_K=[4|8]"
     "WG_X=16"
     "WG_Y=1"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_glsl_shader_permutation(
@@ -168,6 +186,8 @@ uvkc_glsl_shader_permutation(
     "TILE_K=[4|8]"
     "WG_X=16"
     "WG_Y=1"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_cc_binary(

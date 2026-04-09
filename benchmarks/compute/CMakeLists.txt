@@ -19,6 +19,8 @@ uvkc_glsl_shader_permutation(
     "mad_throughput.glsl"
   PERMUTATION
     "TYPE=[f16vec4|vec4]"
+  GLSLC_ARGS
+    "--target-env=vulkan1.1"
 )
 
 uvkc_cc_binary(
